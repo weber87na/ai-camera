@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Generated image storage (large binary files)
+storage/
+
 # Environment variables (contains API keys!)
 .env
 .env.local
