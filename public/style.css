@@ -1,0 +1,803 @@
+/* ─── Design Tokens ─────────────────────────────────────── */
+:root {
+  --bg-outer:   #0d0d0c;
+  --bg-panel:   #eeeae1;
+  --card-bg:    #fffcf5;
+  --photo-frame:#f7f1e7;
+  --primary:    #667263;
+  --primary-hover: #515d50;
+  --accent:     #b38b68;
+  --text-main:  #403b36;
+  --text-muted: #80786f;
+  --border:     #d8cfc1;
+  --shadow:     rgba(65, 57, 48, 0.16);
+  --ink:        var(--text-main);
+  --paper:      var(--card-bg);
+  --muted:      var(--text-muted);
+  --line:       var(--border);
+  --page-width: 480px;
+}
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg-outer);
+  color: var(--ink);
+  font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
+}
+
+button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ─── App Shell ──────────────────────────────────────────── */
+/* 固定大小的容器，所有 screen 都用 absolute 填滿它 */
+.app-shell {
+  position: fixed;
+  inset: 0;
+  width: min(100%, var(--page-width));
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+/* ─── Screen Base ────────────────────────────────────────── */
+/* 每個 screen 獨立佔滿整個 app-shell */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden; /* 預設不捲動，各 screen 自行覆蓋 */
+}
+
+.screen.is-active {
+  display: flex;
+}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.primary-button,
+.secondary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  border-radius: 4px;
+  padding: 0 20px;
+  font-weight: 700;
+}
+
+.primary-button {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--primary);
+  color: #fffdf8;
+  letter-spacing: 0.1em;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-button:not(:disabled):active {
+  transform: translateY(1px);
+  background: var(--primary-hover);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.secondary-button {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+/* ─── HOME ──────────────────────────────────────────────── */
+.screen-home {
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding:
+    calc(8px + env(safe-area-inset-top))
+    10px
+    calc(14px + env(safe-area-inset-bottom));
+  background: radial-gradient(circle at top, #f6f2e9 0%, var(--bg-panel) 48%, #e3ded3 100%);
+}
+
+/* Polaroid shell */
+.polaroid-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 10px 10px 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow:
+    0 14px 32px var(--shadow),
+    0 2px 6px rgba(65, 57, 48, 0.08);
+}
+
+.polaroid-shell::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(80, 70, 58, 0.08);
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
+}
+
+.polaroid-photo {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #cfc4b4;
+  border-radius: 4px;
+  background: var(--photo-frame);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.12),
+    inset 0 3px 8px rgba(22,18,14,0.3),
+    inset 3px 0 7px rgba(22,18,14,0.2),
+    inset -3px 0 7px rgba(22,18,14,0.18),
+    inset 0 -3px 7px rgba(22,18,14,0.16);
+}
+
+.polaroid-photo::after {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 10px 14px -11px rgba(12,10,8,0.72),
+    inset 9px 0 13px -11px rgba(12,10,8,0.58),
+    inset -9px 0 13px -11px rgba(12,10,8,0.5),
+    inset 0 -8px 12px -11px rgba(12,10,8,0.45);
+  content: "";
+  pointer-events: none;
+}
+
+.style-carousel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: grab;
+}
+
+.style-carousel.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.style-carousel::-webkit-scrollbar { display: none; }
+
+.style-card {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #aaa;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  outline: none;
+  transform-origin: center;
+  transition: opacity 180ms ease, filter 180ms ease;
+  will-change: opacity, filter;
+}
+
+.style-card:focus-visible { box-shadow: inset 0 0 0 3px #fff; }
+
+.style-card.is-jelly {
+  animation: jellySnap 460ms cubic-bezier(0.22, 1.35, 0.38, 1) both;
+}
+
+@keyframes jellySnap {
+  0%   { transform: scale(1); }
+  24%  { transform: scale(1.012, 0.994); }
+  48%  { transform: scale(0.995, 1.006); }
+  72%  { transform: scale(1.004, 0.998); }
+  100% { transform: scale(1); }
+}
+
+.style-card.edge-bump {
+  animation: edgeBump 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes edgeBump {
+  0%, 100% { transform: translateX(0); }
+  28%  { transform: translateX(-9px); }
+  55%  { transform: translateX(5px); }
+  78%  { transform: translateX(-2px); }
+}
+
+.swipe-hint {
+  position: absolute;
+  z-index: 4;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  background: rgba(63,59,53,0.72);
+  color: #fdfbf6;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  animation: hintPulse 1.7s ease-in-out infinite;
+  backdrop-filter: blur(6px);
+}
+
+.swipe-hint span { font-size: 19px; line-height: 1; }
+
+.swipe-hint.is-hidden {
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  animation: none;
+}
+
+@keyframes hintPulse {
+  0%, 100% { transform: translateX(-50%); }
+  50%  { transform: translateX(calc(-50% + 5px)); }
+}
+
+.style-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  transform: translate3d(0,0,0) scale(1.01);
+  transition: transform 220ms cubic-bezier(0.22, 0.8, 0.32, 1), filter 180ms ease;
+  user-select: none;
+  will-change: transform, filter;
+  -webkit-user-drag: none;
+}
+
+.polaroid-caption {
+  display: grid;
+  flex: 0 0 clamp(82px, 12vh, 112px);
+  place-items: center;
+  padding: 12px 28px 16px;
+  background: var(--card-bg);
+}
+
+.polaroid-caption img {
+  display: block;
+  width: min(82%, 300px);
+  height: 58px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  transform: rotate(-1deg);
+}
+
+.home-controls {
+  display: flex;
+  flex: 0 0 76px;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 5px 2px;
+  text-align: center;
+}
+
+.home-controls .primary-button {
+  border-radius: 7px;
+  box-shadow: 0 5px 14px rgba(65, 78, 64, 0.2);
+}
+
+/* ─── CAMERA ─────────────────────────────────────────────── */
+.camera-screen {
+  padding:
+    calc(14px + env(safe-area-inset-top))
+    16px
+    calc(10px + env(safe-area-inset-bottom));
+  background: #111;
+  color: #fff;
+}
+
+.camera-topbar,
+.simple-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  min-height: 36px;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.camera-step {
+  color: #88847c;
+  font-size: 9px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.camera-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 10px -16px 0;
+  overflow: hidden;
+  background: #26231f;
+}
+
+.camera-stage video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.camera-placeholder {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+}
+
+.placeholder-icon { margin-bottom: 10px; font-size: 40px; }
+
+.camera-placeholder p  { margin: 0; color: #fff; font-size: 14px; }
+.camera-placeholder small { display: block; margin-top: 7px; font-size: 10px; }
+
+.face-guide { display: none; }
+
+.camera-style-pill {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  left: 50%;
+  padding: 7px 13px;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 20px;
+  background: rgba(0,0,0,0.35);
+  font-size: 11px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.camera-hint { display: none; }
+
+.camera-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 14px 28px calc(8px + env(safe-area-inset-bottom));
+}
+
+.camera-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.camera-switch.invisible { opacity: 0; pointer-events: none; }
+
+.shutter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  padding: 6px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.shutter span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.camera-permission {
+  flex-shrink: 0;
+  min-height: 48px;
+  margin-top: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  width: 100%;
+}
+
+/* ─── REVIEW ─────────────────────────────────────────────── */
+.review-screen {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-panel);
+  padding:
+    calc(12px + env(safe-area-inset-top))
+    16px
+    calc(16px + env(safe-area-inset-bottom));
+}
+
+.review-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-top: 10px;
+  text-align: center;
+}
+
+/* Polaroid 外框（確認畫面） */
+.photo-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 10px 10px 52px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow:
+    0 14px 32px var(--shadow),
+    0 2px 6px rgba(65, 57, 48, 0.08);
+}
+
+.photo-frame::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(80, 70, 58, 0.08);
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
+}
+
+.photo-frame img {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border: 1px solid #cfc4b4;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.12),
+    inset 0 3px 8px rgba(22,18,14,0.3),
+    inset 3px 0 7px rgba(22,18,14,0.2),
+    inset -3px 0 7px rgba(22,18,14,0.18),
+    inset 0 -3px 7px rgba(22,18,14,0.16);
+}
+
+.review-badge,
+.result-label {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.review-content h2 {
+  margin: 14px 0 5px;
+  font-size: 22px;
+}
+
+.review-content p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.review-content p span { color: var(--accent); }
+
+.review-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 9px;
+  flex-shrink: 0;
+  margin-top: 14px;
+}
+
+/* ─── PROCESSING ─────────────────────────────────────────── */
+.processing-screen {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: #111;
+  color: #fff;
+  padding:
+    calc(20px + env(safe-area-inset-top))
+    24px
+    calc(20px + env(safe-area-inset-bottom));
+}
+
+.processing-inner {
+  width: 100%;
+  max-width: 340px;
+}
+
+.eyebrow {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.progress-orbit {
+  position: relative;
+  display: grid;
+  width: 116px;
+  height: 116px;
+  margin: 0 auto 32px;
+  place-items: center;
+}
+
+.orbit-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1.4s linear infinite;
+}
+
+.orbit-core { font-size: 28px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.processing-steps {
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+  color: #77736c;
+  font-size: 17px;
+  line-height: 2.8;
+  text-align: left;
+}
+
+.processing-steps span {
+  display: inline-block;
+  width: 28px;
+}
+
+.processing-steps .done,
+.processing-steps .active { color: #fff; }
+
+.processing-steps b { color: #c6a56c; }
+
+.dont-close {
+  margin-top: 20px;
+  color: #66625b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ─── RESULT ─────────────────────────────────────────────── */
+/* position:absolute 脫離 app-shell 的 overflow:hidden，自己控制捲動 */
+.result-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-panel);
+  padding:
+    calc(12px + env(safe-area-inset-top))
+    16px
+    calc(20px + env(safe-area-inset-bottom));
+}
+
+.result-screen.is-active { display: flex; }
+
+.result-content { text-align: center; }
+
+/* Polaroid 外框（結果畫面） */
+.result-image-wrap {
+  position: relative;
+  height: min(60vh, 540px);
+  padding: 10px 10px 52px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow:
+    0 14px 32px var(--shadow),
+    0 2px 6px rgba(65, 57, 48, 0.08);
+}
+
+.result-image-wrap::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(80, 70, 58, 0.08);
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
+}
+
+.result-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid #cfc4b4;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.12),
+    inset 0 3px 8px rgba(22,18,14,0.3),
+    inset 3px 0 7px rgba(22,18,14,0.2),
+    inset -3px 0 7px rgba(22,18,14,0.18),
+    inset 0 -3px 7px rgba(22,18,14,0.16);
+}
+
+.cost-card {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 0;
+  border: 1px solid rgba(70, 62, 52, 0.18);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.38);
+}
+
+.cost-card > div:not(.cost-divider) { flex: 1; }
+
+.cost-card small,
+.cost-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.cost-card strong {
+  display: block;
+  margin: 2px 0;
+  font-size: 17px;
+}
+
+.cost-divider {
+  width: 1px;
+  height: 30px;
+  background: var(--line);
+}
+
+.result-actions { padding-top: 14px; }
+
+.share-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 9px;
+}
+
+.line-button span {
+  color: #36a94e;
+  font-size: 10px;
+}
+
+.text-button {
+  width: 100%;
+  margin-top: 13px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ─── Toast ──────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  z-index: 30;
+  bottom: calc(26px + env(safe-area-inset-bottom));
+  left: 50%;
+  max-width: calc(100% - 32px);
+  padding: 11px 16px;
+  border-radius: 4px;
+  background: #191816;
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 18px);
+  transition: 0.25s;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ─── Small screen tweaks (≤ 359px) ─────────────────────── */
+@media (max-width: 359px) {
+  .screen-home {
+    padding:
+      calc(4px + env(safe-area-inset-top))
+      6px
+      calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .polaroid-shell { padding: 8px 8px 0; }
+
+  .polaroid-caption {
+    flex-basis: 76px;
+    padding: 9px 22px 12px;
+  }
+
+  .home-controls {
+    flex-basis: 70px;
+    padding: 9px 3px 1px;
+  }
+}
+
+/* ─── Desktop framing ────────────────────────────────────── */
+@media (min-width: 600px) {
+  .app-shell {
+    border-right: 1px solid rgba(255,255,255,0.14);
+    border-left:  1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 0 55px rgba(0,0,0,0.5);
+  }
+}

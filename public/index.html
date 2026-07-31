@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color"
+    content="#667263" />
+  <title>映像間｜AI 風格照相館</title>
+  <link rel="preconnect"
+    href="https://fonts.googleapis.com" />
+  <link rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;600;700;900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet"
+    href="style.css?v=24" />
+</head>
+
+<body>
+  <main class="app-shell">
+    <section class="screen screen-home is-active"
+      id="homeScreen">
+      <div class="polaroid-shell">
+        <div class="polaroid-photo">
+          <div class="style-carousel"
+            id="styleGrid"
+            aria-label="左右滑動選擇風格"></div>
+          <div class="swipe-hint"
+            id="swipeHint"
+            aria-hidden="true"><span>‹</span> 左右滑動切換風格 <span>›</span></div>
+        </div>
+        <div class="polaroid-caption">
+          <img id="selectedStyleLabel"
+            src="images/style-label-01.webp?v=1"
+            alt="辛普森" />
+        </div>
+      </div>
+      <div class="home-controls">
+        <button class="primary-button"
+          id="startButton">開始拍照</button>
+      </div>
+    </section>
+
+    <section class="screen camera-screen"
+      id="cameraScreen">
+      <div class="camera-topbar"><button class="back-button"
+          data-back="home">←</button><span>映像間</span><span class="camera-step">02 / 05</span></div>
+      <div class="camera-stage"
+        id="cameraStage">
+        <video id="video"
+          autoplay
+          playsinline
+          muted></video>
+        <canvas id="captureCanvas"
+          hidden></canvas>
+        <div class="camera-placeholder"
+          id="cameraPlaceholder">
+          <div class="placeholder-icon">◉</div>
+          <p>點擊下方按鈕開啟相機</p><small>需要允許瀏覽器使用相機</small>
+        </div>
+        <div class="face-guide"><span></span><span></span><span></span><span></span><i>將臉放在框內</i></div>
+        <div class="camera-style-pill"
+          id="cameraStylePill"></div>
+        <div class="camera-hint">AI 將保留你的五官與神韻<br />創作一張原創風格肖像</div>
+      </div>
+      <div class="camera-controls"><button class="camera-switch"
+          id="switchCamera"
+          aria-label="切換鏡頭">↻</button><button class="shutter"
+          id="shutterButton"
+          aria-label="拍照"><span></span></button><button class="camera-switch invisible">↻</button></div>
+      <button class="camera-permission"
+        id="permissionButton">開啟相機</button>
+    </section>
+
+    <section class="screen review-screen"
+      id="reviewScreen">
+      <header class="simple-topbar"><button class="back-button"
+          data-back="camera">←</button><span>確認照片</span><span class="camera-step">03 / 05</span></header>
+      <div class="review-content">
+        <div class="photo-frame"><img id="capturedImage"
+            alt="拍攝的照片" />
+          <div class="review-badge">照片已準備好</div>
+        </div>
+        <h2>這張照片可以嗎？</h2>
+        <p>確認後，AI 將開始為你創作<br /><span id="reviewStyleName"></span></p>
+      </div>
+      <div class="review-actions"><button class="secondary-button"
+          id="retakeButton">重新拍攝</button><button class="primary-button"
+          id="usePhotoButton">使用這張</button></div>
+    </section>
+
+    <section class="screen processing-screen"
+      id="processingScreen">
+      <div class="processing-inner">
+        <div class="progress-orbit">
+          <div class="orbit-ring"></div>
+          <div class="orbit-core">✦</div>
+        </div>
+        <div class="processing-steps">
+          <div class="done"><span>✓</span>已接收照片</div>
+          <div id="queueStep"
+            class="active"><span>●</span><b id="queueMessage">正在安排生成工作</b></div>
+          <div id="generateStep"><span>○</span>正在轉換為 <b id="processingStyleName"></b></div>
+          <div><span>○</span>正在整理圖片</div>
+        </div>
+        <p class="dont-close">請保持畫面開啟，通常需要 20–60 秒</p>
+      </div>
+    </section>
+
+    <section class="screen result-screen"
+      id="resultScreen">
+      <header class="simple-topbar"><span class="brand-small">映像間</span><span class="camera-step">05 / 05</span>
+      </header>
+      <div class="result-content">
+        <div class="result-image-wrap"><img id="resultImage"
+            alt="AI 生成結果" />
+          <div class="result-label"
+            id="resultStyleLabel"></div>
+        </div>
+        <div class="cost-card">
+          <div><small>本次使用</small><strong id="totalTokens">13,797</strong><span>總 Token</span></div>
+          <div class="cost-divider"></div>
+          <div><small>估計費用</small><strong id="totalCost">NT$1.56</strong><span>約 US$0.048</span></div>
+        </div>
+      </div>
+      <div class="result-actions"><button class="primary-button"
+          id="downloadButton">儲存圖片 <span>↓</span></button>
+        <div class="share-row"><button class="secondary-button"
+            id="shareButton">分享圖片</button><button class="secondary-button line-button"
+            id="lineButton">分享到 LINE</button></div><button class="text-button"
+          id="againButton">再拍一張　↗</button>
+      </div>
+    </section>
+  </main>
+  <div class="toast"
+    id="toast"></div>
+  <script src="app.js?v=18"
+    type="module"></script>
+</body>
+
+</html>
