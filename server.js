@@ -226,10 +226,12 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use((error, _req, res, _next) => {
+  // 用戶在上傳途中斷線，靜默忽略
+  if (error.message === "Request aborted") return;
   if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE")
     return res.status(413).json({ error: "照片不可超過 5MB" });
   console.error(error);
-  res.status(500).json({ error: "伺服器發生未預期錯誤" });
+  if (!res.headersSent) res.status(500).json({ error: "伺服器發生未預期錯誤" });
 });
 
 // 定期清理 in-memory job 快取（storage 不受影響）
