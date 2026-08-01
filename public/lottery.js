@@ -1,7 +1,21 @@
-const MAX_BG_PHOTOS = 20;
+const MAX_ON_SCREEN = 20;
+const POLL_INTERVAL = 10000;
+const POP_INTERVAL = 3000;
 
-let userPhotos = []; // 只存真實使用者的相片 URL
+let allPhotos = [];
+let allPhotosIndex = 0;
+let userPhotos = [];
 const domElements = [];
+
+const baseStyles = Array.from({ length: 10 }, (_, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    return `url('/images/style-${num}.webp')`;
+});
+
+const baseStyleUrls = Array.from({ length: 10 }, (_, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    return `/images/style-${num}.webp`;
+});
 
 function getTodayStr() {
     const d = new Date();
@@ -9,18 +23,26 @@ function getTodayStr() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-async function fetchPhotos() {
+async function fetchLatestPhotos() {
     try {
         const today = getTodayStr();
-        const res = await fetch(`/api/results?date=${today}&limit=1000`);
+        const res = await fetch(`/api/photos/${today}`);
         const data = await res.json();
         
-        if (data.data && data.data.length > 0) {
-            // 取得真實照片
-            userPhotos = data.data.map(r => r.imageUrl);
+        if (data.images && data.images.length > 0) {
+            userPhotos = data.images;
+            const wrapped = data.images.map(url => `url('${url}')`);
+            allPhotos = [...baseStyles, ...wrapped];
         }
     } catch (e) {
-        console.error("Failed to fetch photos", e);
+        console.error("Failed to fetch latest photos", e);
+        if (allPhotos.length === 0) {
+            allPhotos = [...baseStyles];
+        }
+    }
+
+    if (userPhotos.length === 0) {
+        userPhotos = [...baseStyleUrls];
     }
 }
 
@@ -37,40 +59,60 @@ function getRandomScatter() {
     return { x, y, rot };
 }
 
-function createBgElements() {
+function createDomElements() {
     const center = document.querySelector('.center');
-    center.innerHTML = '';
-    domElements.length = 0;
     
-    // 建立背景裝飾圖片池
-    let bgPool = [...userPhotos];
-    
-    // 如果真實相片不足 50 張，把基礎相片也混進來當背景
-    if (userPhotos.length < 50) {
-        const baseStyles = Array.from({ length: 10 }, (_, i) => {
-            const num = String(i + 1).padStart(2, '0');
-            return `/images/style-${num}.webp`;
-        });
-        bgPool = [...bgPool, ...baseStyles];
-    }
-    
-    // 如果連1張照片都沒有（剛好也沒 baseStyles 就不建），不過有了 baseStyles 就一定會有照片
-    if (bgPool.length === 0) return;
-
-    for (let i = 0; i < MAX_BG_PHOTOS; i++) {
+    for (let i = 0; i < MAX_ON_SCREEN; i++) {
         const el = document.createElement('div');
         el.className = 'photo';
         
         const scatter = getRandomScatter();
-        el.style.transform = `translate(${scatter.x}px, ${scatter.y}px) rotate(${scatter.rot}deg)`;
+        el.dataset.origTransform = `translate(${scatter.x}px, ${scatter.y}px) rotate(${scatter.rot}deg)`;
+        el.style.transform = el.dataset.origTransform;
         
-        // 從 bgPool 隨機塞一張照片做背景裝飾
-        const img = bgPool[Math.floor(Math.random() * bgPool.length)];
-        el.style.setProperty('--bg-img', `url('${img}')`);
+        const initialImg = allPhotos[i % allPhotos.length];
+        el.style.setProperty('--bg-img', initialImg);
         
         center.appendChild(el);
         domElements.push(el);
     }
+    
+    allPhotosIndex = MAX_ON_SCREEN % allPhotos.length;
+}
+
+let popTimer;
+let currentPopped = null;
+
+function runPopCycle() {
+    if (domElements.length === 0) return;
+    
+    const center = document.querySelector('.center');
+    const outerCenter = document.querySelector('.outer-center');
+    
+    if (currentPopped) {
+        currentPopped.classList.remove('normal-filter');
+        currentPopped.style.transform = currentPopped.dataset.origTransform;
+        center.appendChild(currentPopped);
+        currentPopped = null;
+    }
+    
+    const bgElements = domElements.filter(el => el.parentElement === center);
+    if (bgElements.length === 0) return;
+    
+    const el = bgElements[Math.floor(Math.random() * bgElements.length)];
+    
+    const nextImg = allPhotos[allPhotosIndex % allPhotos.length];
+    el.style.setProperty('--bg-img', nextImg);
+    allPhotosIndex++;
+    
+    outerCenter.appendChild(el);
+    el.classList.add('normal-filter');
+    
+    const popRot = (Math.random() - 0.5) * 20;
+    const scale = window.innerWidth < 600 ? 1.7 : 1.8;
+    el.style.transform = `scale(${scale}) rotate(${popRot}deg)`;
+    
+    currentPopped = el;
 }
 
 // Fisher-Yates Shuffle
@@ -93,17 +135,17 @@ async function drawWinners() {
     btn.disabled = true;
     btn.textContent = "抽獎中...";
 
-    const container = document.querySelector('.winners-container');
-    container.innerHTML = ''; // 清空上次得獎者
+    const container = document.getElementById('winnersContainer');
+    container.innerHTML = '';
     container.classList.add('active');
 
-    // 洗牌並取出最多 5 張
+    clearInterval(popTimer);
+
     const shuffled = shuffle(userPhotos);
     const winners = shuffled.slice(0, 5);
 
-    // 依序彈出中獎照片
     for (let i = 0; i < winners.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 600)); // 每隔 0.6 秒彈出一張
+        await new Promise(resolve => setTimeout(resolve, 600));
         
         const el = document.createElement('div');
         el.className = 'photo winner';
@@ -117,20 +159,23 @@ async function drawWinners() {
 }
 
 async function init() {
-    await fetchPhotos();
-    createBgElements();
-    
+    await fetchLatestPhotos();
+    createDomElements();
+    popTimer = setInterval(runPopCycle, POP_INTERVAL);
+    setInterval(fetchLatestPhotos, POLL_INTERVAL);
     document.getElementById('drawButton').addEventListener('click', drawWinners);
 }
 
-// RWD 重新散佈背景
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         domElements.forEach(el => {
-            const scatter = getRandomScatter();
-            el.style.transform = `translate(${scatter.x}px, ${scatter.y}px) rotate(${scatter.rot}deg)`;
+            if (!el.classList.contains('normal-filter')) {
+                const scatter = getRandomScatter();
+                el.dataset.origTransform = `translate(${scatter.x}px, ${scatter.y}px) rotate(${scatter.rot}deg)`;
+                el.style.transform = el.dataset.origTransform;
+            }
         });
     }, 500);
 });

@@ -4,16 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>映像間｜作品藝廊</title>
-    <link rel="stylesheet" href="gallery.css?v=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="gallery.css?v=2">
 </head>
 <body>
-    <div class="container">
-        <!-- 存放被放大/置中的照片 -->
-        <div class="outer-center"></div>
-        <!-- 存放正在旋轉背景的照片 -->
-        <div class="center"></div>
+    <header class="gallery-header">
+        <a class="gallery-back" href="index.html" aria-label="返回首頁">←</a>
+        <div class="gallery-header-text">
+            <h1>映像間</h1>
+            <p>今日作品</p>
+        </div>
+    </header>
+
+    <main class="gallery-grid" id="galleryGrid">
+        <!-- 照片會由 JS 動態填入 -->
+    </main>
+
+    <div class="gallery-empty" id="galleryEmpty" style="display:none;">
+        <p>今日尚無照片</p>
+        <small>拍攝後的作品會出現在這裡</small>
     </div>
-    
-    <script src="gallery.js?v=1" type="module"></script>
+
+    <!-- 全螢幕檢視 Lightbox -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightboxClose" aria-label="關閉">✕</button>
+        <div class="lightbox-photo" id="lightboxPhoto"></div>
+    </div>
+
+    <script src="gallery.js?v=3" type="module"></script>
 </body>
 </html>

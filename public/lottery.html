@@ -8,16 +8,16 @@
 </head>
 <body>
     <div class="container">
-        <!-- 存放背景旋轉的照片 -->
+        <!-- 存放被放大/置中的照片 -->
+        <div class="outer-center"></div>
+        <!-- 存放正在旋轉背景的照片 -->
         <div class="center"></div>
-        
-        <!-- UI 控制區 -->
+
+        <!-- 抽獎 UI -->
         <div class="ui-layer">
             <button id="drawButton" class="draw-btn">開始抽獎</button>
         </div>
-
-        <!-- 存放中獎者（上 3 下 2） -->
-        <div class="winners-container"></div>
+        <div class="winners-container" id="winnersContainer"></div>
     </div>
     
     <script src="lottery.js?v=1" type="module"></script>

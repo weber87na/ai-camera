@@ -60,20 +60,6 @@ function persistResult(job) {
   }
 }
 
-/**
- * 讀取 results.jsonl，回傳陣列（最新在前）
- */
-function loadResults() {
-  try {
-    return fs.readFileSync(RESULTS_LOG, "utf8")
-      .split("\n")
-      .filter(Boolean)
-      .map(line => JSON.parse(line))
-      .reverse();
-  } catch {
-    return [];
-  }
-}
 
 // ── In-memory state ────────────────────────────────────────
 const jobs      = new Map();
@@ -122,7 +108,7 @@ async function runJob(job) {
       model:              "gpt-image-2",
       image,
       prompt:             getStylePrompt(job.style),
-      quality:            "medium",
+      quality:            process.env.IMAGE_QUALITY || "low",
       size:               "1024x1536",
       output_format:      "jpeg",
       output_compression: 85
@@ -191,34 +177,33 @@ app.get("/api/jobs/:id", (req, res) => {
   res.json(publicJob(job));
 });
 
+
 /**
- * GET /api/results?page=1&limit=20&style=simpsons&date=2025-07-31
- * 列出所有已儲存的生成記錄（最新在前）
+ * GET /api/photos/:date
+ * 直接掃描 storage/YYYY-MM-DD/ 資料夾，回傳所有圖片的公開 URL
+ * 不依賴 results.jsonl，方便測試
  */
-app.get("/api/results", (req, res) => {
-  const page   = Math.max(1, Number(req.query.page)  || 1);
-  const limit  = Math.min(100, Number(req.query.limit) || 20);
-  const style  = req.query.style  || null;
-  const date   = req.query.date   || null;   // YYYY-MM-DD
+app.get("/api/photos/:date", (req, res) => {
+  const date = req.params.date;
+  // 基本格式驗證 YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: "日期格式須為 YYYY-MM-DD" });
+  }
 
-  let results = loadResults();
+  const dateDir = path.join(STORAGE_ROOT, date);
+  let files = [];
+  try {
+    files = fs.readdirSync(dateDir)
+      .filter(f => /\.(jpe?g|png|webp|gif)$/i.test(f))
+      .sort();
+  } catch {
+    // 資料夾不存在，回傳空陣列
+  }
 
-  // 篩選
-  if (style) results = results.filter(r => r.style === style);
-  if (date)  results = results.filter(r => r.file.startsWith(date));
-
-  const total   = results.length;
-  const pages   = Math.ceil(total / limit);
-  const records = results.slice((page - 1) * limit, page * limit);
-
-  // 附上圖片的公開 URL
   const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const data = records.map(r => ({
-    ...r,
-    imageUrl: `${baseUrl}/storage/${r.file}`
-  }));
+  const images = files.map(f => `${baseUrl}/storage/${date}/${f}`);
 
-  res.json({ total, page, pages, limit, data });
+  res.json({ date, total: images.length, images });
 });
 
 app.get("/api/health", (_req, res) => {

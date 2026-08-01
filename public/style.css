@@ -748,6 +748,30 @@ button {
   font-size: 11px;
 }
 
+.gallery-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fffdf8;
+  font-weight: 700;
+  font-size: inherit;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  box-shadow: 0 5px 14px rgba(140, 108, 72, 0.25);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.gallery-button:active {
+  transform: translateY(1px);
+  background: #9a7555;
+}
+
 /* ─── Toast ──────────────────────────────────────────────── */
 .toast {
   position: fixed;
