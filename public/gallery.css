@@ -1,0 +1,105 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --deg: 0deg;
+    --photo-w: 220px;
+    --photo-h: 300px;
+}
+
+body {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    overflow: hidden;
+    background-color: #1a1a1a; /* 深色背景更襯托照片 */
+}
+
+.container {
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.outer-center {
+    width: 0;
+    height: 0;
+    position: absolute;
+    margin: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    z-index: 10;
+}
+
+.center {
+    width: 0;
+    height: 0;
+    position: absolute;
+    margin: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    transform: rotate(var(--deg));
+    animation: rotateGallery 60s linear infinite;
+    z-index: 1;
+}
+
+/* Base Photo styling */
+.photo {
+    position: absolute;
+    width: var(--photo-w);
+    height: var(--photo-h);
+    margin-top: calc(var(--photo-h) / -2);
+    margin-left: calc(var(--photo-w) / -2);
+    background-color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    border-radius: 4px;
+    
+    /* Default state in the background: grayscale & blurred */
+    filter: grayscale(100%) blur(4px);
+    opacity: 0.7;
+    transition: filter 0.8s ease, opacity 0.8s ease, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, filter, opacity;
+}
+
+.photo::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 30px; /* 立可拍底部留白 */
+    background-color: #000;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-image: var(--bg-img);
+}
+
+/* Popped out state */
+.photo.normal-filter {
+    filter: none;
+    opacity: 1;
+    z-index: 999;
+}
+
+@keyframes rotateGallery {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* RWD scaling for mobile */
+@media (max-width: 600px) {
+    :root {
+        --photo-w: 180px;
+        --photo-h: 250px;
+    }
+}
