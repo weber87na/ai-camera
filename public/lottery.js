@@ -6,6 +6,7 @@ let allPhotos = [];
 let allPhotosIndex = 0;
 let userPhotos = [];
 const domElements = [];
+let isDrawing = false;
 
 const baseStyles = Array.from({ length: 10 }, (_, i) => {
     const num = String(i + 1).padStart(2, '0');
@@ -125,13 +126,32 @@ function shuffle(array) {
     return arr;
 }
 
+function resumePopCycle() {
+    clearInterval(popTimer);
+    popTimer = setInterval(runPopCycle, POP_INTERVAL);
+}
+
+function closeWinners() {
+    if (isDrawing) return;
+
+    const container = document.getElementById('winnersContainer');
+    if (!container.classList.contains('active')) return;
+
+    container.classList.remove('active');
+    container.innerHTML = '';
+    resumePopCycle();
+}
+
 async function drawWinners() {
+    if (isDrawing) return;
+
     if (userPhotos.length === 0) {
         alert("今日尚無照片，無法抽獎！");
         return;
     }
 
     const btn = document.getElementById('drawButton');
+    isDrawing = true;
     btn.disabled = true;
     btn.textContent = "抽獎中...";
 
@@ -142,7 +162,7 @@ async function drawWinners() {
     clearInterval(popTimer);
 
     const shuffled = shuffle(userPhotos);
-    const winners = shuffled.slice(0, 5);
+    const winners = shuffled.slice(0, 1);
 
     for (let i = 0; i < winners.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 600));
@@ -156,6 +176,7 @@ async function drawWinners() {
 
     btn.textContent = "重新抽獎";
     btn.disabled = false;
+    isDrawing = false;
 }
 
 async function init() {
@@ -163,7 +184,18 @@ async function init() {
     createDomElements();
     popTimer = setInterval(runPopCycle, POP_INTERVAL);
     setInterval(fetchLatestPhotos, POLL_INTERVAL);
-    document.getElementById('drawButton').addEventListener('click', drawWinners);
+
+    const drawButton = document.getElementById('drawButton');
+    const winnersContainer = document.getElementById('winnersContainer');
+
+    drawButton.addEventListener('click', () => drawWinners());
+
+    document.querySelector('.container').addEventListener('click', event => {
+        if (!winnersContainer.classList.contains('active') || isDrawing) return;
+        if (event.target.closest('.winner')) return;
+
+        closeWinners();
+    });
 }
 
 let resizeTimeout;

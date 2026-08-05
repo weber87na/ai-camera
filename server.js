@@ -70,8 +70,20 @@ let activeJobs  = 0;
 app.disable("x-powered-by");
 app.use(express.static("public", { maxAge: 0, etag: true }));
 
+// Three.js browser build for the film-lottery experience.
+app.use("/vendor/three", express.static(path.join(process.cwd(), "node_modules", "three", "build"), { maxAge: "7d" }));
+app.use("/vendor/three-addons", express.static(path.join(process.cwd(), "node_modules", "three", "examples", "jsm"), { maxAge: "7d" }));
+
 // 提供 storage 目錄的靜態存取（圖片）
 app.use("/storage", express.static(STORAGE_ROOT, { maxAge: "7d" }));
+
+app.get(["/film-lottery", "/film-lottery/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "film-lottery.html"));
+});
+
+app.get(["/moon-lottery", "/moon-lottery/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "moon-lottery.html"));
+});
 
 function queuePosition(jobId) {
   const index = queue.indexOf(jobId);
