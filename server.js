@@ -93,6 +93,10 @@ app.get(["/simpsons-magic", "/simpsons-magic/"], (_req, res) => {
   res.sendFile(path.resolve("public", "simpsons-magic.html"));
 });
 
+app.get(["/hunterxhunter", "/hunterxhunter/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "hunterxhunter.html"));
+});
+
 function queuePosition(jobId) {
   const index = queue.indexOf(jobId);
   return index < 0 ? 0 : index;
