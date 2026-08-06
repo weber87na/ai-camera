@@ -85,6 +85,14 @@ app.get(["/moon-lottery", "/moon-lottery/"], (_req, res) => {
   res.sendFile(path.resolve("public", "moon-lottery.html"));
 });
 
+app.get(["/chinese-magic", "/chinese-magic/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "chinese-magic.html"));
+});
+
+app.get(["/simpsons-magic", "/simpsons-magic/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "simpsons-magic.html"));
+});
+
 function queuePosition(jobId) {
   const index = queue.indexOf(jobId);
   return index < 0 ? 0 : index;
