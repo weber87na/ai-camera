@@ -19,8 +19,8 @@ const video = document.querySelector("#sourceVideo");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050108);
 
-const camera = new THREE.PerspectiveCamera(43, window.innerWidth / window.innerHeight, 0.1, 120);
-camera.position.set(0, 0, 12);
+const camera = new THREE.PerspectiveCamera(43, window.innerWidth / window.innerHeight, 0.1, 140);
+camera.position.set(0, 0, 14);
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -41,8 +41,8 @@ controls.dampingFactor = 0.055;
 controls.rotateSpeed = 0.35;
 controls.zoomSpeed = 0.55;
 controls.enablePan = false;
-controls.minDistance = 7.5;
-controls.maxDistance = 16;
+controls.minDistance = 9;
+controls.maxDistance = 20;
 controls.target.set(0, 0, APPLE_DEPTH);
 
 scene.add(new THREE.HemisphereLight(0xfff0d6, 0x100313, 2.8));
@@ -68,7 +68,7 @@ let appleParticles = null;
 let particleUniforms = null;
 let decalMesh = null;
 let winnerImage = null;
-let state = "loading"; // loading -> playing -> transitioning -> winner
+let state = "loading"; // loading -> waiting -> playing -> transitioning -> winner
 let transitionStartedAt = null;
 
 const raycaster = new THREE.Raycaster();
@@ -89,6 +89,51 @@ function loadImage(url) {
         image.onload = () => resolve(image);
         image.onerror = reject;
         image.src = url;
+    });
+}
+
+function waitForUserStart() {
+    state = "waiting";
+
+    return new Promise((resolve) => {
+        let listening = false;
+        let resolved = false;
+        const cleanup = () => {
+            window.removeEventListener("pointerdown", settle);
+            window.removeEventListener("keydown", settle);
+            listening = false;
+        };
+        const listen = () => {
+            if (resolved || listening) return;
+            listening = true;
+            window.addEventListener("pointerdown", settle, { once: true });
+            window.addEventListener("keydown", settle, { once: true });
+        };
+        const settle = () => {
+            if (resolved) return;
+            cleanup();
+
+            // Keep play() inside the trusted pointer/key event. Calling it after
+            // an awaited promise can be rejected by autoplay policy even though
+            // the user has already clicked.
+            video.muted = false;
+            video.volume = 0.9;
+            video.play().then(() => {
+                resolved = true;
+                resolve();
+            }).catch((error) => {
+                video.pause();
+                video.currentTime = 0;
+                video.muted = true;
+                video.volume = 0;
+                console.warn("Video playback needs user interaction.", error);
+                // Keep waiting; the next real page click will retry the gesture.
+                listen();
+            });
+        };
+
+        // A click anywhere on the page is enough to satisfy autoplay policy.
+        listen();
     });
 }
 
@@ -401,8 +446,11 @@ function updateAppleFitScale() {
     const distance = camera.position.z - APPLE_DEPTH;
     const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distance;
     const visibleWidth = visibleHeight * camera.aspect;
-    const safeWidth = window.innerWidth < window.innerHeight ? 0.96 : 0.92;
-    const safeHeight = 0.92;
+    const isPortraitViewport = window.innerWidth < window.innerHeight;
+    // Keep a deliberate amount of negative space around the finished apple. This
+    // matches the reference framing and leaves the stem and full silhouette readable.
+    const safeWidth = isPortraitViewport ? 0.92 : 0.64;
+    const safeHeight = isPortraitViewport ? 0.82 : 0.64;
 
     appleFitScale = Math.min(
         (visibleWidth * safeWidth) / tmpSize.x,
@@ -412,8 +460,10 @@ function updateAppleFitScale() {
 
 function createPortraitTexture(image) {
     const canvas = document.createElement("canvas");
-    canvas.width = 900;
-    canvas.height = 1080;
+    // The source portraits are 3:4. A taller projection keeps shoulders and
+    // upper-body details instead of zooming into the face.
+    canvas.width = 760;
+    canvas.height = 1120;
     const context = canvas.getContext("2d");
 
     const sourceAspect = image.naturalWidth / image.naturalHeight;
@@ -507,7 +557,7 @@ function createWinnerDecal(image) {
     const size = appleBounds.getSize(new THREE.Vector3());
     const center = appleBounds.getCenter(new THREE.Vector3());
     const portraitWidth = size.x * 0.48;
-    const portraitHeight = portraitWidth * 1.2;
+    const portraitHeight = portraitWidth * (1120 / 760);
     const portraitDepth = size.z * 0.3;
 
     const rayOrigin = new THREE.Vector3(center.x, center.y - size.y * 0.035, appleBounds.max.z + size.z * 0.25);
@@ -588,12 +638,15 @@ async function startMagicExperience() {
     setPortraitProjectionOpacity(0);
     videoPlane.visible = true;
     videoPlane.material.opacity = 1;
+    video.pause();
+    video.muted = true;
+    video.volume = 0;
 
     await pickRandomWinner();
     setPortraitProjectionOpacity(0);
 
     video.currentTime = 0;
-    await video.play().catch((error) => console.warn("Video playback needs user interaction.", error));
+    await waitForUserStart();
     state = "playing";
 }
 
@@ -681,13 +734,13 @@ async function init() {
     try {
         await preloadApple();
 
-        if (video.readyState < 1) {
-            await new Promise((resolve) => video.addEventListener("loadedmetadata", resolve, { once: true }));
+        if (video.readyState < 2) {
+            await new Promise((resolve) => video.addEventListener("loadeddata", resolve, { once: true }));
         }
 
+        animate();
         setupVideoPlane();
         await startMagicExperience();
-        animate();
     } catch (error) {
         console.error("Disney magic experience failed to initialise:", error);
         stage.classList.add("has-error");
