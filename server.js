@@ -97,6 +97,10 @@ app.get(["/hunterxhunter", "/hunterxhunter/"], (_req, res) => {
   res.sendFile(path.resolve("public", "hunterxhunter.html"));
 });
 
+app.get(["/disney", "/disney/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "disney.html"));
+});
+
 function queuePosition(jobId) {
   const index = queue.indexOf(jobId);
   return index < 0 ? 0 : index;

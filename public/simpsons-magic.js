@@ -8,7 +8,6 @@ const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
 });
 
 const stage = document.querySelector("#magicStage");
-const replayBtn = document.querySelector("#replayBtn");
 const video = document.getElementById("sourceVideo");
 
 // Three.js 核心組件
@@ -337,7 +336,6 @@ async function pickRandomWinner() {
 async function startMagicExperience() {
     state = "playing";
     startTime = performance.now() / 1000;
-    replayBtn.style.display = "none";
 
     setSmokeState(0, 0, 0);
 
@@ -409,9 +407,6 @@ function animate() {
         } else {
             // 7.2s 以後：煙霧完全散去
             setSmokeState(1, 0, 1);
-            if (replayBtn.style.display === "none") {
-                replayBtn.style.display = "flex";
-            }
         }
     }
 
@@ -464,9 +459,6 @@ function onWindowResize() {
 }
 
 window.addEventListener("resize", onWindowResize);
-replayBtn.addEventListener("click", () => {
-    startMagicExperience();
-});
 
 // 初始化
 async function init() {

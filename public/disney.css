@@ -14,7 +14,7 @@ body,
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #02030a;
+    background: #050108;
 }
 
 body {
@@ -31,14 +31,30 @@ body {
 #magicStage canvas {
     position: absolute;
     inset: 0;
+    z-index: 1;
     display: block;
     width: 100%;
     height: 100%;
-    cursor: grab;
+    cursor: default;
     touch-action: none;
 }
 
-#magicStage canvas:active {
+#magicStage.is-winner canvas {
+    cursor: grab;
+}
+
+#magicStage.is-winner canvas:active {
     cursor: grabbing;
 }
 
+#magicStage.has-error::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 10;
+    padding: 14px 20px;
+    color: #fff3d1;
+    font-size: clamp(16px, 2vw, 22px);
+    content: attr(data-error);
+    transform: translate(-50%, -50%);
+}
