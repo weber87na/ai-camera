@@ -71,6 +71,15 @@ const chainMaterial = new THREE.MeshStandardMaterial({
     envMapIntensity: 1.5
 });
 
+const backgroundChainMaterial = new THREE.MeshStandardMaterial({
+    color: 0x7f8796,
+    metalness: 0.88,
+    roughness: 0.32,
+    transparent: true,
+    opacity: 0.68,
+    depthWrite: true
+});
+
 // 單一鎖鏈環幾何體 (橢圓鏈環)
 function createSingleLinkGeometry() {
     const geom = new THREE.TorusGeometry(0.26, 0.07, 14, 28);
@@ -81,8 +90,8 @@ function createSingleLinkGeometry() {
 const singleLinkGeom = createSingleLinkGeometry();
 
 // 建立一條長鎖鏈 (InstancedMesh)
-function createChainLine(linkCount) {
-    const instancedMesh = new THREE.InstancedMesh(singleLinkGeom, chainMaterial, linkCount);
+function createChainLine(linkCount, material = chainMaterial) {
+    const instancedMesh = new THREE.InstancedMesh(singleLinkGeom, material, linkCount);
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     // 實例每幀都會從畫面外移入；避免沿用第一幀的包圍球而被錯誤裁掉。
     instancedMesh.frustumCulled = false;
@@ -91,12 +100,16 @@ function createChainLine(linkCount) {
 
 const ambientChains = [];
 const coveringChains = [];
+const winnerBackgroundChains = [];
 const ambientDummy = new THREE.Object3D();
 const coveringDummy = new THREE.Object3D();
+const winnerBackgroundDummy = new THREE.Object3D();
 
 const AMBIENT_LINK_SPACING = 0.48;
 const COVERING_CHAIN_COUNT = 64;
 const COVERING_LINK_SPACING = 0.43;
+const WINNER_BACKGROUND_CHAIN_COUNT = 15;
+const WINNER_BACKGROUND_LINK_SPACING = 0.48;
 
 // 計算畫面上可見寬度與高度
 function getVisibleSizeAtDepth(depth = 0) {
@@ -203,6 +216,45 @@ function initCoveringChains() {
     }
 }
 
+// 人物揭曉後使用的隨機背景鏈，固定鏈環數量並放在人物卡後方。
+function initWinnerBackgroundChains() {
+    const { width, height } = getVisibleSizeAtDepth(0.8);
+
+    for (let i = 0; i < WINNER_BACKGROUND_CHAIN_COUNT; i++) {
+        const startSide = i % 4;
+        const endSide = (startSide + 1 + Math.floor(Math.random() * 3)) % 4;
+        const startNormalized = randomBoundaryPoint(startSide, 0.58);
+        const endNormalized = randomBoundaryPoint(endSide, 0.58);
+        const bendAngle = Math.random() * Math.PI * 2;
+        const bendAmount = 0.08 + Math.random() * 0.2;
+        const bend = new THREE.Vector3(
+            Math.cos(bendAngle) * bendAmount,
+            Math.sin(bendAngle) * bendAmount,
+            0
+        );
+        const z = 0.35 + Math.random() * 0.85;
+        const curve = new THREE.CatmullRomCurve3([
+            normalizedToStage(startNormalized, width, height, z),
+            normalizedToStage(startNormalized.clone().lerp(endNormalized, 0.34).add(bend), width, height, z),
+            normalizedToStage(startNormalized.clone().lerp(endNormalized, 0.68).addScaledVector(bend, -0.75), width, height, z),
+            normalizedToStage(endNormalized, width, height, z)
+        ], false, "centripetal", 0.5);
+        const linkCount = Math.ceil(curve.getLength() / WINNER_BACKGROUND_LINK_SPACING) + 2;
+        const instancedMesh = createChainLine(linkCount, backgroundChainMaterial);
+        instancedMesh.visible = false;
+        instancedMesh.renderOrder = 2 + i;
+        scene.add(instancedMesh);
+
+        winnerBackgroundChains.push({
+            instancedMesh,
+            linkCount,
+            curve,
+            seed: Math.random() * Math.PI * 2,
+            scale: 0.78 + Math.random() * 0.22
+        });
+    }
+}
+
 // 每條鏈只沿著自己的單一邊活動，端點不轉彎、不與相鄰邊連接。
 function updateAmbientChains(time) {
     ambientChains.forEach((chain) => {
@@ -296,6 +348,39 @@ function updateCoveringChains(coverProgress, retreatProgress, time) {
             chainObj.instancedMesh.setMatrixAt(i, coveringDummy.matrix);
         }
         chainObj.instancedMesh.instanceMatrix.needsUpdate = true;
+    });
+}
+
+function updateWinnerBackgroundChains(time, revealProgress) {
+    const revealScale = smoothstep(revealProgress);
+
+    winnerBackgroundChains.forEach((chain, chainIndex) => {
+        if (revealScale <= 0.001) {
+            chain.instancedMesh.visible = false;
+            return;
+        }
+
+        chain.instancedMesh.visible = true;
+        for (let i = 0; i < chain.linkCount; i++) {
+            const progress = chain.linkCount <= 1 ? 0 : i / (chain.linkCount - 1);
+            const point = chain.curve.getPointAt(progress);
+            const tangent = chain.curve.getTangentAt(progress);
+            const wave = Math.sin(i * 0.32 + time * 0.72 + chain.seed) * 0.075;
+            point.x -= tangent.y * wave;
+            point.y += tangent.x * wave;
+            point.z += Math.sin(time * 0.58 + i * 0.18 + chainIndex) * 0.035;
+
+            winnerBackgroundDummy.position.copy(point);
+            winnerBackgroundDummy.rotation.set(0, 0, Math.atan2(tangent.y, tangent.x));
+            winnerBackgroundDummy.rotateX((i + chainIndex) % 2 === 0 ? 0 : Math.PI / 2);
+            winnerBackgroundDummy.rotateY(Math.sin(time * 0.7 + i * 0.13 + chain.seed) * 0.1);
+            winnerBackgroundDummy.scale.setScalar(
+                Math.max(0.001, revealScale * chain.scale * (0.96 + Math.sin(time + i * 0.2) * 0.04))
+            );
+            winnerBackgroundDummy.updateMatrix();
+            chain.instancedMesh.setMatrixAt(i, winnerBackgroundDummy.matrix);
+        }
+        chain.instancedMesh.instanceMatrix.needsUpdate = true;
     });
 }
 
@@ -401,7 +486,7 @@ async function pickRandomWinner() {
     }
 }
 
-// 啟動 / 重播抽卡流程
+// 啟動抽卡流程
 async function startMagicExperience() {
     const currentSequenceId = ++sequenceId;
     state = "playing";
@@ -412,6 +497,10 @@ async function startMagicExperience() {
     video.currentTime = 0;
 
     updateCoveringChains(0, 0, 0);
+    updateWinnerBackgroundChains(0, 0);
+    ambientChains.forEach(({ instancedMesh }) => {
+        instancedMesh.visible = true;
+    });
 
     if (winnerMesh) {
         winnerMesh.visible = false;
@@ -444,6 +533,7 @@ function animate() {
 
     if (!sequenceReady) {
         updateCoveringChains(0, 0, now);
+        updateWinnerBackgroundChains(now, 0);
         controls.update();
         renderer.render(scene, camera);
         return;
@@ -499,7 +589,7 @@ function animate() {
         }
 
     } else {
-        // 退去結束：覆蓋鎖鏈退場，留存周圍有機鎖鏈與彈出的人物卡片
+        // 退去結束：覆蓋鏈退場，改由人物後方的隨機背景鏈接手。
         state = "winner";
         updateCoveringChains(0, 1.0, now);
 
@@ -519,6 +609,15 @@ function animate() {
         winnerMesh.rotation.y = Math.sin(now * 0.9) * 0.06;
         winnerMesh.rotation.x = Math.cos(now * 0.6) * 0.03;
     }
+
+    const winnerIsVisible = Boolean(winnerMesh && winnerMesh.visible);
+    ambientChains.forEach(({ instancedMesh }) => {
+        instancedMesh.visible = !winnerIsVisible;
+    });
+    const backgroundRevealProgress = winnerIsVisible
+        ? clamp01((now - (winnerRevealTime ?? now)) / 0.9)
+        : 0;
+    updateWinnerBackgroundChains(now, backgroundRevealProgress);
 
     controls.update();
     renderer.render(scene, camera);
@@ -553,10 +652,13 @@ function onWindowResize() {
 
     ambientChains.forEach(({ instancedMesh }) => scene.remove(instancedMesh));
     coveringChains.forEach(({ instancedMesh }) => scene.remove(instancedMesh));
+    winnerBackgroundChains.forEach(({ instancedMesh }) => scene.remove(instancedMesh));
     ambientChains.length = 0;
     coveringChains.length = 0;
+    winnerBackgroundChains.length = 0;
     initAmbientChains();
     initCoveringChains();
+    initWinnerBackgroundChains();
 }
 
 window.addEventListener("resize", onWindowResize);
@@ -565,6 +667,7 @@ window.addEventListener("resize", onWindowResize);
 async function init() {
     initAmbientChains();
     initCoveringChains();
+    initWinnerBackgroundChains();
 
     const handleVideoReady = () => {
         setupVideoPlane();
