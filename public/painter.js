@@ -196,27 +196,29 @@ const fragmentShader = `
         // the source video retain their original visible colors.
         vec3 printed = texture2D(uWinner, clamp(imageUv, 0.0, 1.0)).rgb;
 
-        float imageAspect = uWinnerResolution.x / max(uWinnerResolution.y, 1.0);
-        float imageMaxRadius = length(vec2(imageAspect * 0.5, 0.5));
-        vec2 imageQ = (imageUv - 0.5) * vec2(imageAspect, 1.0);
-        float printRadius = length(imageQ) / imageMaxRadius;
+        // Use an ellipse that follows the photo's own proportions. It keeps
+        // the round painted-in silhouette while revealing substantially more
+        // of portrait and landscape winners than a strict pixel-perfect circle.
+        vec2 imageQ = (imageUv - 0.5) / 0.5;
+        float printRadius = length(imageQ);
         float printAngle = atan(imageQ.y, imageQ.x);
         float broadNoise = noise2(photoUv * 10.0 + vec2(uTime * 0.018, -uTime * 0.012));
         float fineNoise = noise2(photoUv * 31.0 - vec2(uTime * 0.025, uTime * 0.016));
         float spiralCoordinate = printRadius
-            + sin(printAngle * 2.0 - printRadius * 7.2 + broadNoise * 0.75) * 0.055
-            + (fineNoise - 0.5) * 0.12;
+            + sin(printAngle * 2.0 - printRadius * 6.4 + broadNoise * 0.72) * 0.07
+            + (fineNoise - 0.5) * 0.105;
 
         // White areas exposed by the source paint animation advance the photo
         // slightly sooner, making both layers feel like one continuous action.
         vec3 localVideo = texture2D(uVideo, clamp(videoUv, 0.0, 1.0)).rgb;
         float paperDistance = length(localVideo - PAPER);
         float clearedCanvas = 1.0 - smoothstep(0.12, 0.62, paperDistance);
-        float revealRadius = mix(-0.08, 1.32, printProgress)
-            + (clearedCanvas - 0.5) * 0.14 * (1.0 - printProgress * 0.45);
+        float circularStage = smoothstep(0.0, 0.9, printProgress);
+        float revealRadius = mix(-0.10, 1.0, circularStage);
+        revealRadius += (clearedCanvas - 0.5) * 0.055 * (1.0 - printProgress);
         float printMask = 1.0 - smoothstep(
-            revealRadius - 0.12,
-            revealRadius + 0.045,
+            revealRadius - 0.115,
+            revealRadius + 0.055,
             spiralCoordinate
         );
         printMask *= canvasSoft * photoSoft * imageSoft * smoothstep(0.0, 0.28, printProgress);

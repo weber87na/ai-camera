@@ -2,6 +2,28 @@
 
 手機直式優先的活動用 AI 肖像網站。前端與 Node.js API 部署在同一個 Azure App Service，不需要 Azure Functions、Blob Storage 或外部 Queue。
 
+## 網頁入口
+
+執行 `npm start` 後，以下連結可直接開啟本機頁面（預設埠號為 `3000`）。部署到 Azure App Service 時，將 `http://localhost:3000` 替換成實際的 App Service 網址即可。
+
+| 入口 | 用途 |
+| --- | --- |
+| [AI 風格照相館](http://localhost:3000/) | 選擇風格、拍照並生成 AI 肖像 |
+| [作品藝廊](http://localhost:3000/gallery) | 瀏覽當日生成作品 |
+| [膠捲抽選](http://localhost:3000/lottery) | 以膠捲形式展示當日作品並進行抽選 |
+| [顏料吸收](http://localhost:3000/painter) | 顏料吸收動畫與中獎圖片展示 |
+| [中華一番／小當家魔法](http://localhost:3000/chinese-magic) | 3D 魔法展示與抽選體驗 |
+| [辛普森魔法抽卡](http://localhost:3000/simpsons-magic) | 辛普森主題 3D 抽卡體驗 |
+| [HUNTER × HUNTER 鎖鏈抽卡](http://localhost:3000/hunterxhunter) | 酷拉皮卡鎖鏈抽卡體驗 |
+| [迪士尼魔法](http://localhost:3000/disney) | 迪士尼主題 3D 魔法展示 |
+
+### API 入口
+
+| 入口 | 用途 |
+| --- | --- |
+| [健康檢查](http://localhost:3000/api/health) | 查看服務狀態、生成中與排隊中的工作數量 |
+| `/api/photos/YYYY-MM-DD` | 取得指定日期已儲存圖片的公開 URL，例如 `/api/photos/2026-08-09` |
+
 ## 專案結構
 
 ```text

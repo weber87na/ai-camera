@@ -772,6 +772,21 @@ button {
   background: #9a7555;
 }
 
+.lottery-link {
+  display: inline-block;
+  margin-top: 9px;
+  color: #8e8a80;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.lottery-link:hover,
+.lottery-link:focus-visible {
+  color: #697c67;
+}
+
 /* ─── Toast ──────────────────────────────────────────────── */
 .toast {
   position: fixed;
