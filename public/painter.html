@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4f0e7">
+    <title>映像間｜顏料吸收</title>
+    <link rel="stylesheet" href="/painter.css?v=10">
+    <script type="importmap">
+        { "imports": { "three": "/vendor/three/three.module.min.js" } }
+    </script>
+</head>
+<body>
+    <main id="painterStage" aria-label="顏料吸收與中獎圖片展示舞台">
+        <video
+            id="sourceVideo"
+            src="/videos/顏料吸收.mp4"
+            preload="auto"
+            playsinline
+            muted
+            disablepictureinpicture
+            aria-hidden="true"
+        ></video>
+
+        <div id="loadingMessage" class="stage-message" role="status">正在準備顏料舞台…</div>
+    </main>
+
+    <script type="module" src="/painter.js?v=10"></script>
+</body>
+</html>
