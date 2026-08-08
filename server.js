@@ -81,10 +81,6 @@ app.get(["/film-lottery", "/film-lottery/"], (_req, res) => {
   res.sendFile(path.resolve("public", "film-lottery.html"));
 });
 
-app.get(["/moon-lottery", "/moon-lottery/"], (_req, res) => {
-  res.sendFile(path.resolve("public", "moon-lottery.html"));
-});
-
 app.get(["/chinese-magic", "/chinese-magic/"], (_req, res) => {
   res.sendFile(path.resolve("public", "chinese-magic.html"));
 });
@@ -107,10 +103,6 @@ app.get(["/painter", "/painter/"], (_req, res) => {
 
 app.get(["/gallery", "/gallery/"], (_req, res) => {
   res.sendFile(path.resolve("public", "gallery.html"));
-});
-
-app.get(["/lottery-photo", "/lottery-photo/"], (_req, res) => {
-  res.sendFile(path.resolve("public", "lottery.html"));
 });
 
 function queuePosition(jobId) {
