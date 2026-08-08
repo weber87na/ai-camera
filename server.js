@@ -70,16 +70,12 @@ let activeJobs  = 0;
 app.disable("x-powered-by");
 app.use(express.static("public", { maxAge: 0, etag: true }));
 
-// Three.js browser build for the film-lottery experience.
+// Three.js browser build for WebGL experiences such as painter.
 app.use("/vendor/three", express.static(path.join(process.cwd(), "node_modules", "three", "build"), { maxAge: "7d" }));
 app.use("/vendor/three-addons", express.static(path.join(process.cwd(), "node_modules", "three", "examples", "jsm"), { maxAge: "7d" }));
 
 // 提供 storage 目錄的靜態存取（圖片）
 app.use("/storage", express.static(STORAGE_ROOT, { maxAge: "7d" }));
-
-app.get(["/film-lottery", "/film-lottery/"], (_req, res) => {
-  res.sendFile(path.resolve("public", "film-lottery.html"));
-});
 
 app.get(["/chinese-magic", "/chinese-magic/"], (_req, res) => {
   res.sendFile(path.resolve("public", "chinese-magic.html"));
