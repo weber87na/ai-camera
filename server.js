@@ -105,6 +105,14 @@ app.get(["/painter", "/painter/"], (_req, res) => {
   res.sendFile(path.resolve("public", "painter.html"));
 });
 
+app.get(["/gallery", "/gallery/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "gallery.html"));
+});
+
+app.get(["/lottery-photo", "/lottery-photo/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "lottery.html"));
+});
+
 function queuePosition(jobId) {
   const index = queue.indexOf(jobId);
   return index < 0 ? 0 : index;

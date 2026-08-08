@@ -26,16 +26,19 @@ const renderer = new THREE.WebGLRenderer({
     powerPreference: "high-performance"
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.5 : 2));
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+// This shader is a display-space compositor: keeping the renderer and both
+// media textures untagged preserves the exact colors decoded by the browser.
+// Applying the renderer's sRGB conversion here would also re-encode the video.
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 stage.appendChild(renderer.domElement);
 
 const videoTexture = new THREE.VideoTexture(video);
-videoTexture.colorSpace = THREE.SRGBColorSpace;
+videoTexture.colorSpace = THREE.NoColorSpace;
 videoTexture.minFilter = THREE.LinearFilter;
 videoTexture.magFilter = THREE.LinearFilter;
 
 const winnerTexture = new THREE.Texture();
-winnerTexture.colorSpace = THREE.SRGBColorSpace;
+winnerTexture.colorSpace = THREE.NoColorSpace;
 winnerTexture.minFilter = THREE.LinearFilter;
 winnerTexture.magFilter = THREE.LinearFilter;
 
@@ -189,9 +192,9 @@ const fragmentShader = `
         );
         float imageEdgeNoise = (noise2(imageUv * 13.0 + vec2(uTime * 0.04, -uTime * 0.03)) - 0.5) * 0.045;
         float imageSoft = smoothstep(-0.035, 0.045, imageEdge + imageEdgeNoise);
+        // Both sources are sampled in display space so the final print and
+        // the source video retain their original visible colors.
         vec3 printed = texture2D(uWinner, clamp(imageUv, 0.0, 1.0)).rgb;
-        float inkVariation = 0.93 + noise2(photoUv * 55.0 + 3.1) * 0.07;
-        printed *= inkVariation;
 
         float imageAspect = uWinnerResolution.x / max(uWinnerResolution.y, 1.0);
         float imageMaxRadius = length(vec2(imageAspect * 0.5, 0.5));
@@ -289,13 +292,14 @@ function readImageOverride() {
     return "";
 }
 
-async function getLatestPhotoUrl() {
+async function getRandomPhotoUrl() {
     try {
         const response = await fetch(`/api/photos/${localDateString()}`, { cache: "no-store" });
         if (!response.ok) return "";
         const data = await response.json();
         const images = Array.isArray(data.images) ? data.images.filter(isUsableImageUrl) : [];
-        return images.at(-1) || "";
+        if (images.length === 0) return "";
+        return images[Math.floor(Math.random() * images.length)];
     } catch {
         return "";
     }
@@ -306,7 +310,7 @@ function loadImageTexture(url) {
         textureLoader.load(
             url,
             (texture) => {
-                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.colorSpace = THREE.NoColorSpace;
                 texture.minFilter = THREE.LinearFilter;
                 texture.magFilter = THREE.LinearFilter;
                 resolve(texture);
@@ -464,8 +468,8 @@ function setSpiralPalette(palette) {
 
 async function loadWinnerImage() {
     const override = readImageOverride();
-    const latest = override ? "" : await getLatestPhotoUrl();
-    const candidates = [...new Set([override, latest, FALLBACK_WINNER].filter(Boolean))];
+    const randomPhoto = override ? "" : await getRandomPhotoUrl();
+    const candidates = [...new Set([override, randomPhoto, FALLBACK_WINNER].filter(Boolean))];
 
     for (const candidate of candidates) {
         try {
