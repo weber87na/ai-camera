@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { requestExperiencePlayback } from "/experience-playback.js?v=1";
 
 const VIDEO_SOURCES = [
-    { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b" },
+    { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b", boxTexture: "/images/simpsons-packaging.png" },
     { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca", boxTexture: "/images/guava-packaging.png" },
     { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45", boxTexture: "/images/talisman-packaging.png" },
     { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81", boxTexture: "/images/chain-packaging.png" },
@@ -18,6 +18,8 @@ const ROLL_SOURCE_INDEXES = [0, 1];
 const BOX_SOURCE_INDEXES = [0, 1, 2, 3, 4];
 const ROLL_DIRECTIONS = [1, -1];
 const ROLL_RADIAL_SCALE = 0.72;
+const BOX_SCALE_MULTIPLIER = 1.25;
+const BOX_ROW_MARGIN = 0.14;
 const ROW_Y = [2.65, -1.05];
 const NARROW_ROW_Y = [2.35, -0.25];
 const BASE_RIBBON_WIDTH = 20;
@@ -707,9 +709,10 @@ function layoutScene() {
     if (!initialized) return;
     const bounds = viewBoundsAtDepth(0);
     const narrow = bounds.width < 9;
-    const boxScale = narrow ? clamp(bounds.width / 8.5, 0.62, 0.78) : clamp(bounds.width / 19, 1.12, 1.28);
+    const baseBoxScale = narrow ? clamp(bounds.width / 8.5, 0.62, 0.78) : clamp(bounds.width / 19, 1.12, 1.28);
+    const boxScale = baseBoxScale * BOX_SCALE_MULTIPLIER;
     const boxRowY = narrow ? NARROW_ROW_Y[1] : ROW_Y[1];
-    const bottomRowY = bounds.bottom + 1.7 * boxScale;
+    const bottomRowY = bounds.bottom + 1.7 * baseBoxScale;
     const rollScale = narrow ? clamp(bounds.width / 5.8, 0.9, 1.08) : 1.55;
     const rollExtent = 1.08 * rollScale;
     const leftReelX = bounds.left + rollExtent * 1.35;
@@ -744,8 +747,8 @@ function layoutScene() {
 
     });
 
-    const boxLeft = narrow ? bounds.left + 1.58 * boxScale : bounds.left + bounds.width * 0.18;
-    const boxRight = narrow ? bounds.right - 1.58 * boxScale : bounds.right - bounds.width * 0.18;
+    const boxLeft = narrow ? bounds.left + 1.58 * boxScale : bounds.left + bounds.width * BOX_ROW_MARGIN;
+    const boxRight = narrow ? bounds.right - 1.58 * boxScale : bounds.right - bounds.width * BOX_ROW_MARGIN;
     const available = Math.max(boxRight - boxLeft, 0.7);
 
     boxes.forEach((box, index) => {
