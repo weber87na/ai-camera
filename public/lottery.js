@@ -164,6 +164,7 @@ const filmNoiseUniforms = {
     uTime: { value: 0 },
     uSeed: { value: Math.random() * 1000 },
     uBurst: { value: 0 },
+    uMonochrome: { value: 0 },
     uIntensity: { value: 1 },
     uResolution: { value: new THREE.Vector2(1, 1) }
 };
@@ -185,6 +186,7 @@ const filmNoiseMaterial = new THREE.ShaderMaterial({
         uniform float uTime;
         uniform float uSeed;
         uniform float uBurst;
+        uniform float uMonochrome;
         uniform float uIntensity;
         uniform vec2 uResolution;
         varying vec2 vUv;
@@ -293,6 +295,9 @@ const filmNoiseMaterial = new THREE.ShaderMaterial({
             float effectBlend = uIntensity * (0.24 + 0.36 * burst);
             color = mix(sampleScene(vUv), color, effectBlend);
 
+            float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+            color = mix(color, vec3(luminance), uMonochrome * uIntensity);
+
             // Keep the bright direct-render look of the original scene while
             // lifting only the compressed midtones introduced by postprocessing.
             color = pow(max(color, vec3(0.0)), vec3(0.9)) * 1.25;
@@ -351,6 +356,7 @@ let cardboardSurfaceTexture = null;
 let filmNoiseNextBurstAt = performance.now() / 1000 + 2.5 + Math.random() * 2.5;
 let filmNoiseBurstStartedAt = -Infinity;
 let filmNoiseBurstDuration = 0;
+let filmNoiseMonochrome = false;
 
 function clamp(value, minimum, maximum) {
     return Math.min(Math.max(value, minimum), maximum);
@@ -1195,6 +1201,7 @@ function updateFilmNoise(elapsedSeconds, reduced) {
         stopTvStaticNoise();
         filmNoiseUniforms.uTime.value = 0;
         filmNoiseUniforms.uBurst.value = 0;
+        filmNoiseUniforms.uMonochrome.value = 0;
         filmNoiseUniforms.uIntensity.value = 0;
         filmNoiseBurstStartedAt = -Infinity;
         return;
@@ -1203,6 +1210,7 @@ function updateFilmNoise(elapsedSeconds, reduced) {
     if (elapsedSeconds >= filmNoiseNextBurstAt) {
         filmNoiseBurstStartedAt = elapsedSeconds;
         filmNoiseBurstDuration = 0.7 + Math.random() * 0.8;
+        filmNoiseMonochrome = Math.random() < 0.34;
         filmNoiseUniforms.uSeed.value = Math.random() * 1000;
         filmNoiseNextBurstAt = elapsedSeconds + 4.5 + Math.random() * 7.5;
         playTvStaticNoise();
@@ -1219,6 +1227,7 @@ function updateFilmNoise(elapsedSeconds, reduced) {
     filmNoiseUniforms.uTime.value = elapsedSeconds;
     const burst = clamp(fadeIn * fadeOut, 0, 1);
     filmNoiseUniforms.uBurst.value = burst;
+    filmNoiseUniforms.uMonochrome.value = filmNoiseMonochrome ? 1 : 0;
     filmNoiseUniforms.uIntensity.value = 1;
     if (burst <= 0.001 && previousBurst > 0.001) stopTvStaticNoise();
 }
