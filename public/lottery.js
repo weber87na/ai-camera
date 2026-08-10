@@ -14,6 +14,7 @@ const FILM_VIDEO_SOURCES = [
     { key: "poison", url: "/example-images/毒藥.mp4", label: "毒藥" }
 ];
 const FILM_ATLAS_VIDEO_COUNT = 1;
+const INITIAL_FILM_VIDEO_POSITION = 0.28;
 
 const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -1016,7 +1017,8 @@ function createRibbon(entries, rowIndex) {
         depth: [0.46, 0.4][rowIndex],
         cellsPerSecond: [0.07, 0.06][rowIndex] * FILM_SPEED_MULTIPLIER,
         direction: ROLL_DIRECTIONS[rowIndex],
-        flowOffset: rowIndex * 0.17
+        flowOffset: rowIndex * 0.17,
+        initialFlowPositioned: false
     };
 
     sceneRoot.add(ribbon);
@@ -1154,6 +1156,16 @@ function layoutScene() {
             * FILM_CELL_LAYOUT_WIDTH
             / FILM_CELL_LAYOUT_HEIGHT;
         ribbon.userData.atlas.repeat.x = clamp((width / targetCellWidth) / frameCount, 0.055, 1.1);
+
+        if (!ribbon.userData.initialFlowPositioned && index < FILM_VIDEO_SOURCES.length) {
+            const videoCellCenter = 0.5 / frameCount;
+            ribbon.userData.flowOffset = wrap01(
+                videoCellCenter
+                - INITIAL_FILM_VIDEO_POSITION * ribbon.userData.atlas.repeat.x
+            );
+            ribbon.userData.atlas.offset.x = ribbon.userData.flowOffset;
+            ribbon.userData.initialFlowPositioned = true;
+        }
 
     });
 
