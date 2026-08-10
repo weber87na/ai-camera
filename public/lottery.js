@@ -3,10 +3,10 @@ import { requestExperiencePlayback } from "/experience-playback.js?v=1";
 
 const VIDEO_SOURCES = [
     { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b" },
-    { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca" },
-    { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45" },
-    { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81" },
-    { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83" }
+    { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca", boxTexture: "/images/guava-packaging.png" },
+    { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45", boxTexture: "/images/talisman-packaging.png" },
+    { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81", boxTexture: "/images/chain-packaging.png" },
+    { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83", boxTexture: "/images/paint-packaging.png" }
 ];
 
 const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
@@ -17,6 +17,7 @@ const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
 const ROLL_SOURCE_INDEXES = [0, 1];
 const BOX_SOURCE_INDEXES = [0, 1, 2, 3, 4];
 const ROLL_DIRECTIONS = [1, -1];
+const ROLL_RADIAL_SCALE = 0.72;
 const ROW_Y = [2.65, -1.05];
 const NARROW_ROW_Y = [2.35, -0.25];
 const BASE_RIBBON_WIDTH = 20;
@@ -388,6 +389,7 @@ function addCardboardGrain(context, width, height, seed) {
 
 function createBoxFaceTexture(frame, source, boxIndex, face) {
     const dimensions = face === "side" ? [512, 720] : face === "top" || face === "bottom" ? [1024, 576] : [1024, 720];
+    const isFullBleedPackaging = Boolean(source.boxTexture);
     const canvas = document.createElement("canvas");
     [canvas.width, canvas.height] = dimensions;
     const context = canvas.getContext("2d");
@@ -400,31 +402,35 @@ function createBoxFaceTexture(frame, source, boxIndex, face) {
         context.translate(width, 0);
         context.scale(-1, 1);
     }
-    context.globalAlpha = face === "side" ? 0.66 : face === "bottom" ? 0.28 : 1;
+    context.globalAlpha = isFullBleedPackaging
+        ? face === "side" ? 0.92 : face === "bottom" ? 0.68 : 1
+        : face === "side" ? 0.66 : face === "bottom" ? 0.28 : 1;
     drawCover(context, frame, 0, 0, width, height);
     context.restore();
 
     const shade = context.createLinearGradient(0, 0, width, height);
-    shade.addColorStop(0, face === "front" ? "rgba(5,4,3,.05)" : "rgba(5,4,3,.3)");
-    shade.addColorStop(0.58, "rgba(5,4,3,.12)");
-    shade.addColorStop(1, "rgba(5,4,3,.72)");
+    shade.addColorStop(0, isFullBleedPackaging ? "rgba(5,4,3,.02)" : face === "front" ? "rgba(5,4,3,.05)" : "rgba(5,4,3,.3)");
+    shade.addColorStop(0.58, isFullBleedPackaging ? "rgba(5,4,3,.08)" : "rgba(5,4,3,.12)");
+    shade.addColorStop(1, isFullBleedPackaging ? "rgba(5,4,3,.4)" : "rgba(5,4,3,.72)");
     context.fillStyle = shade;
     context.fillRect(0, 0, width, height);
 
-    context.save();
-    context.globalAlpha = face === "front" || face === "back" ? 0.9 : 0.72;
-    context.fillStyle = source.accent;
-    if (face === "side") {
-        context.fillRect(0, 0, width * 0.15, height);
-        context.fillRect(width * 0.72, 0, width * 0.28, height);
-    } else if (face === "top" || face === "bottom") {
-        context.fillRect(0, 0, width, height * 0.18);
-        context.fillRect(width * 0.74, 0, width * 0.26, height);
-    } else {
-        context.fillRect(0, 0, width * 0.042, height);
-        context.fillRect(0, height * 0.84, width, height * 0.16);
+    if (!isFullBleedPackaging) {
+        context.save();
+        context.globalAlpha = face === "front" || face === "back" ? 0.9 : 0.72;
+        context.fillStyle = source.accent;
+        if (face === "side") {
+            context.fillRect(0, 0, width * 0.15, height);
+            context.fillRect(width * 0.72, 0, width * 0.28, height);
+        } else if (face === "top" || face === "bottom") {
+            context.fillRect(0, 0, width, height * 0.18);
+            context.fillRect(width * 0.74, 0, width * 0.26, height);
+        } else {
+            context.fillRect(0, 0, width * 0.042, height);
+            context.fillRect(0, height * 0.84, width, height * 0.16);
+        }
+        context.restore();
     }
-    context.restore();
 
     context.strokeStyle = "rgba(8,6,5,.82)";
     context.lineWidth = Math.max(10, width * 0.014);
@@ -433,7 +439,7 @@ function createBoxFaceTexture(frame, source, boxIndex, face) {
     context.lineWidth = 2;
     context.strokeRect(15, 15, width - 30, height - 30);
 
-    if (face === "front" || face === "back") {
+    if (!isFullBleedPackaging && (face === "front" || face === "back")) {
         context.strokeStyle = "rgba(255,248,234,.56)";
         context.lineWidth = 7;
         context.beginPath();
@@ -505,7 +511,14 @@ function createRoll(frame, source, rollIndex) {
     });
 
     const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.94, 0.94, 2.22, 64, 1, false),
+        new THREE.CylinderGeometry(
+            0.94 * ROLL_RADIAL_SCALE,
+            0.94 * ROLL_RADIAL_SCALE,
+            2.22,
+            64,
+            1,
+            false
+        ),
         [labelMaterial, endMaterial, hiddenBottomMaterial]
     );
     body.castShadow = true;
@@ -513,23 +526,45 @@ function createRoll(frame, source, rollIndex) {
     group.add(body);
 
     for (const y of [1.16]) {
-        const flange = new THREE.Mesh(new THREE.CylinderGeometry(1.08, 1.08, 0.15, 64), endMaterial);
+        const flange = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                1.08 * ROLL_RADIAL_SCALE,
+                1.08 * ROLL_RADIAL_SCALE,
+                0.15,
+                64
+            ),
+            endMaterial
+        );
         flange.position.y = y;
         flange.castShadow = true;
         group.add(flange);
 
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.91, 0.042, 12, 64), trimMaterial);
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(0.91 * ROLL_RADIAL_SCALE, 0.042, 12, 64),
+            trimMaterial
+        );
         ring.rotation.x = Math.PI / 2;
         ring.position.y = y + Math.sign(y) * 0.084;
         group.add(ring);
     }
 
-    const topHub = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.37, 0.32, 48), endMaterial);
+    const topHub = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            0.34 * ROLL_RADIAL_SCALE,
+            0.37 * ROLL_RADIAL_SCALE,
+            0.32,
+            48
+        ),
+        endMaterial
+    );
     topHub.position.y = 1.38;
     topHub.castShadow = true;
     group.add(topHub);
 
-    const hubRing = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.032, 10, 48), trimMaterial);
+    const hubRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.33 * ROLL_RADIAL_SCALE, 0.032, 10, 48),
+        trimMaterial
+    );
     hubRing.rotation.x = Math.PI / 2;
     hubRing.position.y = 1.55;
     group.add(hubRing);
@@ -672,6 +707,9 @@ function layoutScene() {
     if (!initialized) return;
     const bounds = viewBoundsAtDepth(0);
     const narrow = bounds.width < 9;
+    const boxScale = narrow ? clamp(bounds.width / 8.5, 0.62, 0.78) : clamp(bounds.width / 19, 1.12, 1.28);
+    const boxRowY = narrow ? NARROW_ROW_Y[1] : ROW_Y[1];
+    const bottomRowY = bounds.bottom + 1.7 * boxScale;
     const rollScale = narrow ? clamp(bounds.width / 5.8, 0.9, 1.08) : 1.55;
     const rollExtent = 1.08 * rollScale;
     const leftReelX = bounds.left + rollExtent * 1.35;
@@ -679,13 +717,17 @@ function layoutScene() {
     const reelX = [leftReelX, rightReelX, leftReelX];
 
     rolls.forEach((roll, index) => {
-        const rowY = narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
+        const rowY = index === 1
+            ? bottomRowY
+            : narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
         roll.scale.setScalar(rollScale);
         roll.position.set(reelX[index], rowY, 0.62 + index * 0.04);
     });
 
     ribbons.forEach((ribbon, index) => {
-        const rowY = narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
+        const rowY = index === 1
+            ? bottomRowY
+            : narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
         const direction = ribbon.userData.direction;
         const startX = direction > 0 ? reelX[index] + 0.52 * rollScale : bounds.left - 1.15;
         const endX = direction > 0 ? bounds.right + 1.15 : reelX[index] - 0.52 * rollScale;
@@ -702,7 +744,6 @@ function layoutScene() {
 
     });
 
-    const boxScale = narrow ? clamp(bounds.width / 8.5, 0.62, 0.78) : clamp(bounds.width / 19, 1.12, 1.28);
     const boxLeft = narrow ? bounds.left + 1.58 * boxScale : bounds.left + bounds.width * 0.18;
     const boxRight = narrow ? bounds.right - 1.58 * boxScale : bounds.right - bounds.width * 0.18;
     const available = Math.max(boxRight - boxLeft, 0.7);
@@ -710,7 +751,7 @@ function layoutScene() {
     boxes.forEach((box, index) => {
         const slot = boxes.length > 1 ? index / (boxes.length - 1) : 0.5;
         const x = boxLeft + available * slot + available * box.userData.jitterX;
-        const y = bounds.bottom + 1.7 * boxScale + box.userData.jitterY;
+        const y = boxRowY + box.userData.jitterY;
         box.scale.setScalar(boxScale);
         box.position.set(x, y, 1.02 + (index % 3) * 0.12);
     });
@@ -844,9 +885,12 @@ async function refreshFilmPhotos() {
 
 async function initialize() {
     resize();
-    const [videoFrames, filmPhotoSet] = await Promise.all([
+    const [videoFrames, filmPhotoSet, boxTextureFrames] = await Promise.all([
         loadFirstFrames(),
-        loadFilmPhotoSet()
+        loadFilmPhotoSet(),
+        Promise.all(VIDEO_SOURCES.map((source, index) => (
+            source.boxTexture ? loadPhotoFrame(source.boxTexture, index) : Promise.resolve(null)
+        )))
     ]);
     filmPhotoSignature = filmPhotoSet.urls.join("|");
 
@@ -856,7 +900,9 @@ async function initialize() {
         createRoll(videoFrames[sourceIndex], VIDEO_SOURCES[sourceIndex], rollIndex);
     });
     BOX_SOURCE_INDEXES.forEach((sourceIndex, boxIndex) => {
-        createFilmBox(videoFrames[sourceIndex], VIDEO_SOURCES[sourceIndex], boxIndex);
+        const source = VIDEO_SOURCES[sourceIndex];
+        const boxFrame = boxTextureFrames[sourceIndex] || videoFrames[sourceIndex];
+        createFilmBox(boxFrame, source, boxIndex);
     });
 
     initialized = true;

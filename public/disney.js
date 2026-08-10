@@ -68,6 +68,8 @@ let appleBounds = null;
 let appleFitScale = 1;
 let appleParticles = null;
 let particleUniforms = null;
+let appleGlow = null;
+let glowUniforms = null;
 let decalMesh = null;
 let winnerImage = null;
 let state = "loading"; // loading -> waiting -> playing -> transitioning -> winner
@@ -397,8 +399,166 @@ function createAppleParticles(geometry) {
     return appleParticles;
 }
 
+function createAppleGlow(geometry) {
+    glowUniforms = {
+        uTime: { value: 0 },
+        uOpacity: { value: 0 },
+        uRadius: { value: geometry.boundingSphere?.radius || 1 }
+    };
+
+    const glowMaterial = new THREE.ShaderMaterial({
+        uniforms: glowUniforms,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        vertexShader: `
+            uniform float uTime;
+            uniform float uOpacity;
+            uniform float uRadius;
+            varying vec3 vLocalPosition;
+            varying vec3 vViewNormal;
+            varying vec3 vViewDirection;
+
+            void main() {
+                vec3 normalizedPosition = position / max(uRadius, 0.0001);
+                float lowerGlow = 1.0 - smoothstep(-0.08, 0.34, normalizedPosition.y);
+                float breathing = 0.5 + 0.5 * sin(uTime * 1.8 + normalizedPosition.x * 2.4);
+                float shellOffset = uRadius * (
+                    0.014 + lowerGlow * (0.02 + breathing * 0.009) * uOpacity
+                );
+                vec3 displaced = position + normal * shellOffset;
+                vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
+
+                vLocalPosition = normalizedPosition;
+                vViewNormal = normalize(normalMatrix * normal);
+                vViewDirection = normalize(-viewPosition.xyz);
+                gl_Position = projectionMatrix * viewPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform float uTime;
+            uniform float uOpacity;
+            varying vec3 vLocalPosition;
+            varying vec3 vViewNormal;
+            varying vec3 vViewDirection;
+
+            float hash21(vec2 p) {
+                p = fract(p * vec2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return fract(p.x * p.y);
+            }
+
+            float valueNoise(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 local = fract(p);
+                local = local * local * (3.0 - 2.0 * local);
+                float a = hash21(cell);
+                float b = hash21(cell + vec2(1.0, 0.0));
+                float c = hash21(cell + vec2(0.0, 1.0));
+                float d = hash21(cell + vec2(1.0, 1.0));
+                return mix(mix(a, b, local.x), mix(c, d, local.x), local.y);
+            }
+
+            float fbm(vec2 p) {
+                float value = 0.0;
+                float amplitude = 0.52;
+                for (int octave = 0; octave < 4; octave++) {
+                    value += valueNoise(p) * amplitude;
+                    p = p * 2.03 + vec2(17.13, 9.71);
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+
+            vec2 energyWisp(vec2 point, float center, float seed, float width) {
+                float flowTime = uTime * (0.36 + seed * 0.008);
+                float verticalProgress = clamp((point.y + 0.82) / 0.88, 0.0, 1.0);
+                float drift = sin(point.y * 5.2 + flowTime + seed) * 0.07;
+                drift += (valueNoise(vec2(point.y * 3.6 + seed, flowTime * 0.42)) - 0.5) * 0.13;
+                float distanceToWisp = abs(point.x - center - drift);
+                float verticalFade = smoothstep(-0.86, -0.68, point.y)
+                    * (1.0 - smoothstep(-0.18, 0.08, point.y));
+                float breathing = 0.82 + 0.18 * sin(flowTime * 2.1 + seed + verticalProgress * 4.0);
+                float glow = exp(-distanceToWisp * (7.0 / width)) * verticalFade * breathing;
+                float centerGlow = exp(-distanceToWisp * (20.0 / width)) * verticalFade * breathing;
+                return vec2(glow, centerGlow);
+            }
+
+            void main() {
+                vec2 surfacePoint = vLocalPosition.xy;
+                float facing = abs(dot(normalize(vViewNormal), normalize(vViewDirection)));
+                float surfaceFacing = smoothstep(0.05, 0.32, facing);
+                float lowerField = 1.0 - smoothstep(-0.02, 0.48, surfacePoint.y);
+
+                vec2 flowUv = vec2(
+                    surfacePoint.x * 2.6,
+                    surfacePoint.y * 3.4 - uTime * 0.42
+                );
+                vec2 warp = vec2(
+                    fbm(flowUv + vec2(3.7, 8.1)),
+                    fbm(flowUv + vec2(11.4, 2.6))
+                ) - 0.5;
+                float flowingMist = fbm(flowUv + warp * 1.15);
+                float mist = smoothstep(0.28, 0.82, flowingMist) * lowerField;
+
+                vec2 leftWisp = energyWisp(surfacePoint, -0.31, 2.3, 1.0);
+                vec2 centerWisp = energyWisp(surfacePoint, 0.0, 5.7, 1.15);
+                vec2 rightWisp = energyWisp(surfacePoint, 0.32, 9.1, 0.92);
+                float wispGlow = leftWisp.x + centerWisp.x * 0.9 + rightWisp.x;
+                float wispCenter = leftWisp.y + centerWisp.y * 0.88 + rightWisp.y;
+
+                vec2 bottomOffset = (surfacePoint - vec2(0.0, -0.78)) * vec2(0.82, 1.5);
+                float bottomDistance = length(bottomOffset);
+                float bottomRadiance = 1.0 - smoothstep(0.08, 0.72, bottomDistance);
+                bottomRadiance *= 0.78 + flowingMist * 0.22;
+
+                float fresnel = pow(1.0 - clamp(facing, 0.0, 1.0), 2.55);
+                float rimStrength = fresnel * (0.28 + lowerField * 0.72);
+                float pulse = 0.92 + 0.08 * sin(uTime * 2.2 + flowingMist * 3.0);
+                float innerEnergy = bottomRadiance * 0.62
+                    + mist * 0.26
+                    + wispGlow * 0.28
+                    + wispCenter * 0.18
+                    + lowerField * 0.06;
+                float alpha = uOpacity * pulse * (
+                    surfaceFacing * innerEnergy
+                    + rimStrength * 0.42
+                );
+                if (alpha < 0.006) discard;
+
+                float verticalColor = clamp((surfacePoint.y + 0.84) / 1.2, 0.0, 1.0);
+                vec3 lavenderCore = vec3(1.0, 0.38, 1.0);
+                vec3 radiantPink = vec3(1.0, 0.025, 0.7);
+                vec3 softViolet = vec3(0.34, 0.018, 1.0);
+                vec3 radiantWhite = vec3(1.0, 0.72, 1.0);
+                vec3 color = mix(lavenderCore, radiantPink, smoothstep(0.02, 0.42, verticalColor));
+                color = mix(color, softViolet, smoothstep(0.34, 0.92, verticalColor));
+                color = mix(color, radiantWhite, clamp(bottomRadiance * 0.34 + wispCenter * 0.1, 0.0, 0.42));
+                gl_FragColor = vec4(color, min(alpha, 1.0));
+            }
+        `
+    });
+
+    appleGlow = new THREE.Mesh(geometry, glowMaterial);
+    appleGlow.name = "guava-magical-aura";
+    appleGlow.renderOrder = 3;
+    appleGlow.frustumCulled = false;
+    appleGlow.visible = false;
+    return appleGlow;
+}
+
+function setAppleGlowOpacity(opacity) {
+    if (!glowUniforms) return;
+    const value = clamp01(opacity);
+    glowUniforms.uOpacity.value = value;
+    if (appleGlow) appleGlow.visible = value > 0.002;
+}
+
 async function preloadApple() {
-    const gltf = await new GLTFLoader().loadAsync("/apple/apple.glb");
+    const gltf = await new GLTFLoader().loadAsync("/guava/guava.glb");
     gltf.scene.updateMatrixWorld(true);
 
     let sourceMesh = null;
@@ -414,12 +574,13 @@ async function preloadApple() {
         }
     });
 
-    if (!sourceMesh) throw new Error("apple.glb does not contain a mesh");
+    if (!sourceMesh) throw new Error("guava.glb does not contain a mesh");
 
     // Bake the nested GLB transforms into one clean mesh. This gives the decal and
     // screen-fitting code a stable, shared coordinate system.
     const geometry = sourceMesh.geometry.clone();
     geometry.applyMatrix4(sourceMesh.matrixWorld);
+    if (!geometry.attributes.normal) geometry.computeVertexNormals();
     geometry.computeBoundingBox();
 
     const originalBounds = geometry.boundingBox.clone();
@@ -434,6 +595,7 @@ async function preloadApple() {
     appleRoot = new THREE.Group();
     appleRoot.name = "winner-apple";
     appleRoot.add(appleBody);
+    appleRoot.add(createAppleGlow(geometry));
     appleRoot.add(createAppleParticles(geometry));
     appleRoot.visible = false;
     scene.add(appleRoot);
@@ -621,6 +783,7 @@ function beginParticleTransition(now) {
     appleParticles.visible = true;
     particleUniforms.uProgress.value = 0;
     particleUniforms.uOpacity.value = 0;
+    setAppleGlowOpacity(0);
     setAppleSurfaceOpacity(0);
     setPortraitProjectionOpacity(0);
     controls.enabled = false;
@@ -638,6 +801,7 @@ async function startMagicExperience() {
     appleParticles.visible = false;
     particleUniforms.uProgress.value = 0;
     particleUniforms.uOpacity.value = 0;
+    setAppleGlowOpacity(0);
     setAppleSurfaceOpacity(0);
     setPortraitProjectionOpacity(0);
     videoPlane.visible = true;
@@ -683,7 +847,10 @@ function updateTimeline(now) {
 
     const appleReveal = easeOutCubic(clamp01((progress - 0.47) / 0.38));
     const portraitReveal = easeOutCubic(clamp01((progress - 0.7) / 0.25));
+    const glowReveal = easeOutCubic(clamp01((progress - 0.24) / 0.54));
+    const glowPulse = 0.84 + Math.sin(now * 4.2) * 0.1;
     setAppleSurfaceOpacity(appleReveal);
+    setAppleGlowOpacity(glowReveal * glowPulse);
     setPortraitProjectionOpacity(portraitReveal);
     appleRoot.scale.setScalar(appleFitScale * THREE.MathUtils.lerp(0.94, 1, easeOutCubic(progress)));
 
@@ -691,6 +858,7 @@ function updateTimeline(now) {
         appleParticles.visible = false;
         particleUniforms.uOpacity.value = 0;
         setAppleSurfaceOpacity(1);
+        setAppleGlowOpacity(0.84);
         setPortraitProjectionOpacity(1);
         state = "winner";
         controls.enabled = true;
@@ -702,9 +870,13 @@ function animate() {
     requestAnimationFrame(animate);
 
     const now = performance.now() / 1000;
+    if (glowUniforms) {
+        glowUniforms.uTime.value = now;
+    }
     if (state === "playing" || state === "transitioning") updateTimeline(now);
 
     if (appleRoot?.visible && state === "winner") {
+        setAppleGlowOpacity(0.84 + Math.sin(now * 2.4) * 0.1);
         appleRoot.position.y = Math.sin(now * 1.2) * 0.045;
         appleRoot.rotation.y = Math.sin(now * 0.42) * 0.045;
         appleRoot.rotation.x = Math.cos(now * 0.34) * 0.012;
@@ -748,7 +920,7 @@ async function init() {
     } catch (error) {
         console.error("Disney magic experience failed to initialise:", error);
         stage.classList.add("has-error");
-        stage.dataset.error = "蘋果模型載入失敗";
+        stage.dataset.error = "芭樂模型載入失敗";
     }
 }
 
