@@ -6,15 +6,18 @@
     <meta name="theme-color" content="#02030a">
     <title>辛普森魔法抽卡 - Simpsons Magic</title>
     <link rel="stylesheet" href="/simpsons-magic.css?v=1">
+    <link rel="stylesheet" href="/experience-nav.css?v=1">
     <script type="importmap">
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
 </head>
 <body>
+    <a class="experience-back" href="/lottery" aria-label="回到膠捲抽選">返回膠捲</a>
 
-    <video id="sourceVideo" src="/videos/辛普森.webm" crossorigin="anonymous" playsinline autoplay muted style="display: none;"></video>
+    <video id="sourceVideo" src="/videos/辛普森.mp4" crossorigin="anonymous" playsinline autoplay muted style="display: none;"></video>
+    <audio id="soundtrack" src="/sounds/辛普森.mp3" preload="auto" aria-hidden="true"></audio>
     <main id="magicStage" aria-label="辛普森魔法抽卡舞台"></main>
 
-    <script type="module" src="/simpsons-magic.js?v=2"></script>
+    <script type="module" src="/simpsons-magic.js?v=4"></script>
 </body>
 </html>

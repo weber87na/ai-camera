@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
+import { createExperiencePlayback } from "/experience-playback.js?v=1";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -15,6 +16,7 @@ const APPLE_DEPTH = 1;
 
 const stage = document.querySelector("#magicStage");
 const video = document.querySelector("#sourceVideo");
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9 });
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050108);
@@ -118,7 +120,7 @@ function waitForUserStart() {
             // the user has already clicked.
             video.muted = false;
             video.volume = 0.9;
-            video.play().then(() => {
+            entryPlayback.play().then(() => {
                 resolved = true;
                 resolve();
             }).catch((error) => {
@@ -132,8 +134,10 @@ function waitForUserStart() {
             });
         };
 
-        // A click anywhere on the page is enough to satisfy autoplay policy.
-        listen();
+        // The lottery box click grants a same-origin playback attempt. Direct
+        // visits still wait for a trusted click as before.
+        if (entryPlayback.requested) settle();
+        else listen();
     });
 }
 

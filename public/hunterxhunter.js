@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
+import { createExperiencePlayback } from "/experience-playback.js?v=1";
 
 // 人物畫廊候選圖庫
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
@@ -9,6 +10,9 @@ const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
 
 const stage = document.querySelector("#magicStage");
 const video = document.getElementById("sourceVideo");
+const soundtrack = document.getElementById("soundtrack");
+soundtrack.volume = 0.9;
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
 
 // ----------------------------------------------------
 // Three.js 核心組件與場景建立
@@ -516,7 +520,7 @@ async function startMagicExperience() {
 
     startTime = performance.now() / 1000;
     sequenceReady = true;
-    video.play().catch(err => console.log("Video play error:", err));
+    entryPlayback.play().catch(err => console.log("Video play error:", err));
 }
 
 // ----------------------------------------------------

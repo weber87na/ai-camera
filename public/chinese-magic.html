@@ -6,14 +6,17 @@
     <meta name="theme-color" content="#02030a">
     <title>Chinese Magic</title>
     <link rel="stylesheet" href="/chinese-magic.css?v=1">
+    <link rel="stylesheet" href="/experience-nav.css?v=1">
     <script type="importmap">
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
 </head>
 <body>
+    <a class="experience-back" href="/lottery" aria-label="回到膠捲抽選">返回膠捲</a>
 
-    <video id="sourceVideo" src="/videos/道士.webm" crossorigin="anonymous" playsinline autoplay loop muted style="display: none;"></video>
+    <video id="sourceVideo" src="/videos/道士.mp4" crossorigin="anonymous" playsinline autoplay loop muted style="display: none;"></video>
+    <audio id="soundtrack" src="/sounds/道士.mp3?v=1" preload="auto" aria-hidden="true"></audio>
     <main id="magicStage" aria-label="展示舞台"></main>
-    <script type="module" src="/chinese-magic.js?v=3"></script>
+    <script type="module" src="/chinese-magic.js?v=4"></script>
 </body>
 </html>

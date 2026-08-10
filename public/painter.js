@@ -1,7 +1,11 @@
 import * as THREE from "three";
+import { createExperiencePlayback } from "/experience-playback.js?v=2";
 
 const stage = document.querySelector("#painterStage");
 const video = document.querySelector("#sourceVideo");
+const soundtrack = document.querySelector("#soundtrack");
+soundtrack.volume = 0.9;
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
 const loadingMessage = document.querySelector("#loadingMessage");
 
 const FALLBACK_WINNER = "/images/style-04.webp";
@@ -554,7 +558,9 @@ function resize() {
 async function playFromBeginning() {
     state = "playing";
     video.pause();
+    soundtrack.pause();
     video.currentTime = 0;
+    soundtrack.currentTime = 0;
     printStartedAt = null;
     uniforms.uAbsorb.value = 0;
     uniforms.uPrint.value = 0;
@@ -563,10 +569,14 @@ async function playFromBeginning() {
     hideLoadingMessage();
 
     try {
-        await video.play();
+        await entryPlayback.play();
     } catch {
+        video.pause();
+        soundtrack.pause();
+        video.currentTime = 0;
+        soundtrack.currentTime = 0;
         state = "blocked";
-        showLoadingMessage("點擊畫面播放顏料吸收");
+        showLoadingMessage("點擊畫面播放顏料吸收與聲音");
     }
 }
 
@@ -587,6 +597,10 @@ function render() {
 
 video.addEventListener("loadedmetadata", setVideoResolution);
 video.addEventListener("loadeddata", setVideoResolution, { once: true });
+video.addEventListener("playing", () => {
+    state = "playing";
+    hideLoadingMessage();
+});
 video.addEventListener("ended", finish);
 video.addEventListener("error", () => {
     state = "blocked";
@@ -605,6 +619,7 @@ window.addEventListener("resize", resize, { passive: true });
 window.addEventListener("pagehide", () => {
     renderer.setAnimationLoop(null);
     video.pause();
+    soundtrack.pause();
 }, { once: true });
 
 async function init() {

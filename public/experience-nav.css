@@ -1,0 +1,82 @@
+.experience-back {
+    position: fixed;
+    z-index: 1000;
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left: calc(14px + env(safe-area-inset-left, 0px));
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 9px;
+    padding: 0 15px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    background: rgba(5, 6, 8, 0.68);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+    color: #fff;
+    font: 600 14px/1 "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    touch-action: manipulation;
+}
+
+.experience-back::before {
+    font-size: 20px;
+    line-height: 1;
+    content: "‹";
+    transform: translateY(-1px);
+}
+
+.experience-back:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(12, 13, 16, 0.82);
+}
+
+.experience-back:active {
+    transform: translateY(1px);
+}
+
+.experience-back:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+}
+
+.experience-playback-fallback {
+    position: fixed;
+    z-index: 999;
+    top: 50%;
+    left: 50%;
+    min-height: 48px;
+    padding: 0 20px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 999px;
+    background: rgba(5, 6, 8, 0.82);
+    box-shadow: 0 12px 38px rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font: 600 15px/1 "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    transform: translate(-50%, -50%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.experience-playback-fallback:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+    .experience-back {
+        min-width: 44px;
+        justify-content: center;
+        padding: 0 12px;
+        font-size: 0;
+    }
+
+    .experience-back::before {
+        font-size: 24px;
+    }
+}

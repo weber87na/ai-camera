@@ -1,91 +1,175 @@
 import * as THREE from "three";
+import { requestExperiencePlayback } from "/experience-playback.js?v=1";
+
+const VIDEO_SOURCES = [
+    { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b" },
+    { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca" },
+    { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45" },
+    { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81" },
+    { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83" }
+];
 
 const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
     return `/example-images/${number}.jpg`;
 });
 
-const POLL_INTERVAL = 15_000;
-const CARD_WIDTH = 2.48;
-const CARD_HEIGHT = 1.62;
-const CARD_STEP = 2.72;
-const STRIP_HEIGHT = 2.02;
-const ROW_Y = [2.12, 0, -2.12];
-const ROWS = [
-    { speed: 0.42, phase: -1.1, orderOffset: 0, rotation: -0.014, drag: 0.85 },
-    { speed: -0.68, phase: 1.8, orderOffset: 3, rotation: 0.009, drag: 1.0 },
-    { speed: 0.96, phase: -2.9, orderOffset: 6, rotation: -0.012, drag: 1.18 }
-];
+const ROLL_SOURCE_INDEXES = [0, 1];
+const BOX_SOURCE_INDEXES = [0, 1, 2, 3, 4];
+const ROLL_DIRECTIONS = [1, -1];
+const ROW_Y = [2.65, -1.05];
+const NARROW_ROW_Y = [2.35, -0.25];
+const BASE_RIBBON_WIDTH = 20;
+const RIBBON_HEIGHT = 3.35;
+const FILM_CELL_LAYOUT_WIDTH = 216;
+const FILM_CELL_LAYOUT_HEIGHT = 310;
+const FILM_ATLAS_SCALE = 3;
+const FILM_CELL_WIDTH = FILM_CELL_LAYOUT_WIDTH * FILM_ATLAS_SCALE;
+const FILM_CELL_HEIGHT = FILM_CELL_LAYOUT_HEIGHT * FILM_ATLAS_SCALE;
+const FILM_FRAME_INSET_X = 8 * FILM_ATLAS_SCALE;
+const FILM_FRAME_INSET_Y = 34 * FILM_ATLAS_SCALE;
+const FILM_SPEED_MULTIPLIER = 2.5;
+const PHOTO_POLL_INTERVAL = 15_000;
+const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const stage = document.querySelector("#filmStage");
+const lobbyMusic = document.querySelector("#lobbyMusic");
+lobbyMusic.volume = 0.2;
+
+function removeLobbyMusicUnlockListeners() {
+    window.removeEventListener("pointerdown", handleLobbyMusicUnlock, true);
+    window.removeEventListener("keydown", handleLobbyMusicUnlock, true);
+}
+
+async function startLobbyMusic() {
+    if (document.hidden) return false;
+    try {
+        await lobbyMusic.play();
+        removeLobbyMusicUnlockListeners();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function handleLobbyMusicUnlock() {
+    void startLobbyMusic();
+}
+
+window.addEventListener("pointerdown", handleLobbyMusicUnlock, true);
+window.addEventListener("keydown", handleLobbyMusicUnlock, true);
+void startLobbyMusic();
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x101216, 12, 26);
+scene.fog = new THREE.FogExp2(0x000000, 0.025);
 
-const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
-camera.position.set(0, 0.1, 15.3);
-camera.lookAt(0, 0, 0);
+const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 80);
+camera.position.set(0, 0.68, 18.2);
+camera.lookAt(0, -0.25, 0);
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
     powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.08;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.setAttribute("aria-hidden", "true");
 stage.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xfff7ed, 1.8));
+scene.add(new THREE.HemisphereLight(0xffe9cd, 0x10151b, 1.38));
 
-const keyLight = new THREE.DirectionalLight(0xffe5c7, 2.3);
-keyLight.position.set(-4, 5, 8);
+const keyLight = new THREE.DirectionalLight(0xffd2a4, 3.25);
+keyLight.position.set(-7, 9, 12);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 40;
+keyLight.shadow.camera.left = -16;
+keyLight.shadow.camera.right = 16;
+keyLight.shadow.camera.top = 10;
+keyLight.shadow.camera.bottom = -10;
 scene.add(keyLight);
 
-const rimLight = new THREE.PointLight(0xc5dcff, 18, 22, 2);
-rimLight.position.set(5, -1, 7);
+const rimLight = new THREE.PointLight(0x8fc9ff, 42, 34, 2);
+rimLight.position.set(10, 2.8, 7);
 scene.add(rimLight);
 
-const wall = new THREE.Group();
-// Match the reference wall: the left edge stays close while the film recedes at 45°.
-wall.rotation.y = THREE.MathUtils.degToRad(45);
-wall.rotation.x = 0;
-wall.position.x = 3.8;
-scene.add(wall);
+const floorLight = new THREE.PointLight(0xe07e40, 25, 22, 2);
+floorLight.position.set(-6, -5.2, 5);
+scene.add(floorLight);
 
-const textureLoader = new THREE.TextureLoader();
-const textureCache = new Map();
-const frameGeometry = new THREE.PlaneGeometry(CARD_WIDTH + 0.16, CARD_HEIGHT + 0.2);
-const imageGeometry = new THREE.PlaneGeometry(CARD_WIDTH, CARD_HEIGHT);
-const edgeGeometry = new THREE.EdgesGeometry(imageGeometry);
-const holeGeometry = new THREE.BoxGeometry(0.18, 0.085, 0.055);
-const filmMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2a2929,
-    roughness: 0.78,
-    metalness: 0.12,
-    side: THREE.DoubleSide
-});
-const holeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0c0e11,
-    roughness: 0.66,
-    metalness: 0.05
-});
-const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0xffd8ad,
-    transparent: true,
-    opacity: 0.3
-});
+const sceneRoot = new THREE.Group();
+scene.add(sceneRoot);
 
-const rows = [];
-let imageSources = [];
-let imageMeshes = [];
-let playing = true;
-let dragState = null;
-let lastPointer = null;
+const rolls = [];
+const ribbons = [];
+const boxes = [];
+const boxHitMeshes = [];
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
+let dust = null;
+let floor = null;
+let initialized = false;
 let lastFrameTime = performance.now();
-let refreshBusy = false;
+let filmPhotoSignature = "";
+let photoRefreshBusy = false;
+let cardboardSurfaceTexture = null;
+
+function clamp(value, minimum, maximum) {
+    return Math.min(Math.max(value, minimum), maximum);
+}
+
+function lerp(start, end, amount) {
+    return start + (end - start) * amount;
+}
+
+function smoothstep(edge0, edge1, value) {
+    const x = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+    return x * x * (3 - 2 * x);
+}
+
+function wrap01(value) {
+    return ((value % 1) + 1) % 1;
+}
+
+function imageDimensions(image) {
+    return {
+        width: image.videoWidth || image.naturalWidth || image.width || 1,
+        height: image.videoHeight || image.naturalHeight || image.height || 1
+    };
+}
+
+function drawCover(context, image, x, y, width, height) {
+    const source = imageDimensions(image);
+    const scale = Math.max(width / source.width, height / source.height);
+    const sourceWidth = width / scale;
+    const sourceHeight = height / scale;
+    const sourceX = (source.width - sourceWidth) / 2;
+    const sourceY = (source.height - sourceHeight) / 2;
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+}
+
+function drawContain(context, image, x, y, width, height) {
+    const source = imageDimensions(image);
+    const scale = Math.min(width / source.width, height / source.height);
+    const drawWidth = source.width * scale;
+    const drawHeight = source.height * scale;
+    const drawX = x + (width - drawWidth) / 2;
+    const drawY = y + (height - drawHeight) / 2;
+    context.fillStyle = "#050505";
+    context.fillRect(x, y, width, height);
+    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
+async function loadFirstFrames() {
+    return Promise.all(VIDEO_SOURCES.map((source, index) => loadPhotoFrame(source.poster, index)));
+}
 
 function getTodayString() {
     const date = new Date();
@@ -93,320 +177,717 @@ function getTodayString() {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function formatDate(dateString) {
-    const [year, month, day] = dateString.split("-");
-    return `${year}.${month}.${day}`;
-}
-
-function wrap(value, span) {
-    return ((value + span / 2) % span + span) % span - span / 2;
-}
-
-function createPlaceholderTexture() {
-    const canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 260;
-    const context = canvas.getContext("2d");
-    const gradient = context.createLinearGradient(0, 0, 400, 260);
-    gradient.addColorStop(0, "#373b3f");
-    gradient.addColorStop(0.5, "#17191d");
-    gradient.addColorStop(1, "#9b6f4b");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 400, 260);
-    context.fillStyle = "rgba(255,240,220,0.65)";
-    context.font = "500 20px monospace";
-    context.fillText("LOADING FRAME", 24, 232);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-}
-
-const placeholderTexture = createPlaceholderTexture();
-
-function getTexture(url) {
-    if (textureCache.has(url)) return textureCache.get(url);
-
-    const texture = textureLoader.load(
-        url,
-        loadedTexture => {
-            loadedTexture.colorSpace = THREE.SRGBColorSpace;
-            loadedTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-            loadedTexture.needsUpdate = true;
-        },
-        undefined,
-        () => console.warn(`Unable to load lottery frame: ${url}`)
-    );
-    texture.colorSpace = THREE.SRGBColorSpace;
-    textureCache.set(url, texture);
-    return texture;
-}
-
-function createReflectionMaterial(texture) {
-    return new THREE.ShaderMaterial({
-        uniforms: { uMap: { value: texture } },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            precision highp float;
-            uniform sampler2D uMap;
-            varying vec2 vUv;
-            void main() {
-                vec4 color = texture2D(uMap, vUv);
-                float fade = 1.0 - smoothstep(0.03, 0.98, vUv.y);
-                gl_FragColor = vec4(color.rgb * 0.72, color.a * fade * 0.2);
-            }
-        `,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
-    });
-}
-
-function createCard(source, rowIndex, x, repeat, span) {
-    const card = new THREE.Group();
-    card.position.x = x;
-
-    const frame = new THREE.Mesh(
-        frameGeometry,
-        new THREE.MeshStandardMaterial({
-            color: rowIndex === 1 ? 0xf4eee3 : 0xe5ded0,
-            roughness: 0.83,
-            metalness: 0.02
-        })
-    );
-    frame.position.z = 0.025;
-    card.add(frame);
-
-    const texture = getTexture(source.url);
-    const image = new THREE.Mesh(
-        imageGeometry,
-        new THREE.MeshBasicMaterial({ map: texture, color: 0xffffff, fog: false })
-    );
-    image.position.z = 0.09;
-    image.userData = { source, clickable: true };
-    card.add(image);
-    imageMeshes.push(image);
-
-    const edge = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-    edge.position.z = 0.12;
-    card.add(edge);
-
-    const reflection = new THREE.Mesh(imageGeometry, createReflectionMaterial(texture));
-    reflection.position.set(0, -CARD_HEIGHT - 0.1, 0.015);
-    reflection.scale.y = -1;
-    card.add(reflection);
-
-    card.userData = { source, repeat, baseX: x - repeat * span };
-    return card;
-}
-
-function createSprocketHoles(span) {
-    const holes = new THREE.Group();
-    const holeSpacing = 0.43;
-    const holeCount = Math.ceil(span / holeSpacing) + 1;
-    for (let index = 0; index < holeCount; index += 1) {
-        const x = -span / 2 + index * holeSpacing;
-        for (const y of [-1.01 + 0.12, 1.01 - 0.12]) {
-            const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-            hole.position.set(x, y, 0.045);
-            holes.add(hole);
-        }
-    }
-    return holes;
-}
-
-function createRow(config, rowIndex, sources) {
-    const root = new THREE.Group();
-    root.position.set(0, ROW_Y[rowIndex], rowIndex === 1 ? -0.14 : 0);
-    root.rotation.z = config.rotation;
-
-    const count = Math.max(sources.length, 1);
-    const span = count * CARD_STEP;
-    const track = new THREE.Group();
-    root.add(track);
-
-    const row = {
-        config,
-        index: rowIndex,
-        root,
-        track,
-        span,
-        offset: config.phase,
-        cards: [],
-        targetX: new Map()
-    };
-
-    for (let repeat = -1; repeat <= 1; repeat += 1) {
-        const segment = new THREE.Group();
-        segment.position.x = repeat * span;
-
-        const film = new THREE.Mesh(new THREE.PlaneGeometry(span + 0.05, 2.02), filmMaterial);
-        film.position.z = -0.035;
-        segment.add(film);
-
-        segment.add(createSprocketHoles(span));
-        track.add(segment);
-
-        sources.forEach((source, sourceIndex) => {
-            const orderedIndex = (sourceIndex + config.orderOffset + rowIndex) % sources.length;
-            const orderedSource = sources[orderedIndex];
-            const x = (sourceIndex - (count - 1) / 2) * CARD_STEP;
-            const card = createCard(orderedSource, rowIndex, x + repeat * span, repeat, span);
-            segment.add(card);
-            row.cards.push(card);
-
-            if (repeat === 0 && !row.targetX.has(orderedSource.url)) row.targetX.set(orderedSource.url, x);
-        });
-    }
-
-    row.track.position.x = wrap(row.offset, row.span);
-    wall.add(root);
-    return row;
-}
-
-function clearRows() {
-    imageMeshes = [];
-    while (wall.children.length) wall.remove(wall.children[0]);
-    rows.length = 0;
-}
-
-function buildRows(sources) {
-    clearRows();
-    ROWS.forEach((config, index) => rows.push(createRow(config, index, sources)));
-}
-
-async function fetchTodayImages() {
+async function fetchFilmPhotoUrls() {
     try {
         const response = await fetch(`/api/photos/${getTodayString()}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`photo API ${response.status}`);
         const data = await response.json();
-        return Array.isArray(data.images) ? data.images : [];
+        const todayPhotos = Array.isArray(data.images) ? [...new Set(data.images)] : [];
+        if (todayPhotos.length) return todayPhotos;
     } catch (error) {
-        console.warn("Today's storage images are unavailable; using examples.", error);
-        return [];
+        console.warn("無法讀取今日拍照圖片，暫時使用範例圖片。", error);
     }
+    return EXAMPLE_IMAGES;
 }
 
-async function refreshSources({ initial = false } = {}) {
-    if (refreshBusy) return;
-    refreshBusy = true;
-    const todayImages = await fetchTodayImages();
-    const sourceUrls = [...todayImages, ...EXAMPLE_IMAGES];
-    const uniqueUrls = [...new Set(sourceUrls)];
-    const nextSources = uniqueUrls.map((url, index) => ({
-        url,
-        label: url.startsWith("/example-images/") ? `Example ${String(index - todayImages.length + 1).padStart(2, "0")}` : `Today ${String(index + 1).padStart(2, "0")}`,
-        isToday: !url.startsWith("/example-images/")
-    }));
-
-    const changed = nextSources.length !== imageSources.length || nextSources.some((source, index) => source.url !== imageSources[index]?.url);
-    imageSources = nextSources;
-
-    if (changed || initial) buildRows(imageSources);
-    refreshBusy = false;
+function createPhotoFallback(index) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const context = canvas.getContext("2d");
+    const hue = (index * 47 + 22) % 360;
+    const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, `hsl(${hue} 38% 28%)`);
+    gradient.addColorStop(1, "#11100f");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = "rgba(255,255,255,.2)";
+    context.lineWidth = 16;
+    context.beginPath();
+    context.arc(canvas.width * 0.5, canvas.height * 0.5, 160, 0, Math.PI * 2);
+    context.stroke();
+    return canvas;
 }
 
-function stageWorldPerPixel() {
-    const height = Math.max(stage.clientHeight, 1);
-    const verticalSpan = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    return verticalSpan / height;
+function loadPhotoFrame(url, index) {
+    return new Promise(resolve => {
+        const image = new Image();
+        image.decoding = "async";
+        image.addEventListener("load", () => resolve(image), { once: true });
+        image.addEventListener("error", () => {
+            console.warn(`無法載入底片照片：${url}`);
+            resolve(createPhotoFallback(index));
+        }, { once: true });
+        image.src = url;
+    });
+}
+
+function limitPhotoUrls(urls) {
+    const textureLimit = Math.max(1, Math.floor(renderer.capabilities.maxTextureSize / FILM_CELL_WIDTH));
+    const frameLimit = Math.min(16, textureLimit);
+    return urls.slice(-frameLimit);
+}
+
+async function loadFilmPhotoSet() {
+    const urls = limitPhotoUrls(await fetchFilmPhotoUrls());
+    const frames = await Promise.all(urls.map(loadPhotoFrame));
+    return { urls, frames };
+}
+
+function canvasTexture(canvas) {
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    texture.needsUpdate = true;
+    return texture;
+}
+
+function drawPerforations(context, x, width, canvasHeight) {
+    const scale = canvasHeight / FILM_CELL_LAYOUT_HEIGHT;
+    const spacing = 47 * scale;
+    const holeWidth = 24 * scale;
+    const holeHeight = 13 * scale;
+    context.save();
+    context.globalCompositeOperation = "destination-out";
+    for (let holeX = x + 13 * scale; holeX < x + width - 8 * scale; holeX += spacing) {
+        for (const holeY of [10 * scale, canvasHeight - holeHeight - 10 * scale]) {
+            context.beginPath();
+            context.roundRect(holeX, holeY, holeWidth, holeHeight, 3 * scale);
+            context.fill();
+        }
+    }
+    context.restore();
+}
+
+function createFilmAtlas(frames, rowIndex) {
+    const cellWidth = FILM_CELL_WIDTH;
+    const cellHeight = FILM_CELL_HEIGHT;
+    const canvas = document.createElement("canvas");
+    canvas.width = cellWidth * frames.length;
+    canvas.height = cellHeight;
+    const context = canvas.getContext("2d");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let cellIndex = 0; cellIndex < frames.length; cellIndex += 1) {
+        const sourceIndex = (cellIndex + rowIndex * 2) % frames.length;
+        const x = cellIndex * cellWidth;
+
+        context.fillStyle = "#281a10";
+        context.fillRect(x, 0, cellWidth, cellHeight);
+        context.fillStyle = "#120f0d";
+        context.fillRect(
+            x,
+            32 * FILM_ATLAS_SCALE,
+            cellWidth,
+            cellHeight - 64 * FILM_ATLAS_SCALE
+        );
+        const frameX = x + FILM_FRAME_INSET_X;
+        const frameY = FILM_FRAME_INSET_Y;
+        const frameWidth = cellWidth - FILM_FRAME_INSET_X * 2;
+        const frameHeight = cellHeight - FILM_FRAME_INSET_Y * 2;
+        drawContain(context, frames[sourceIndex], frameX, frameY, frameWidth, frameHeight);
+
+        context.strokeStyle = "rgba(238,175,103,.6)";
+        context.lineWidth = 2 * FILM_ATLAS_SCALE;
+        context.strokeRect(
+            frameX - 2 * FILM_ATLAS_SCALE,
+            frameY - 2 * FILM_ATLAS_SCALE,
+            frameWidth + 4 * FILM_ATLAS_SCALE,
+            frameHeight + 4 * FILM_ATLAS_SCALE
+        );
+        context.fillStyle = "rgba(238,175,103,.72)";
+        context.fillRect(
+            x + cellWidth - 2 * FILM_ATLAS_SCALE,
+            0,
+            2 * FILM_ATLAS_SCALE,
+            cellHeight
+        );
+        drawPerforations(context, x, cellWidth, cellHeight);
+    }
+
+    const texture = canvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.userData.frameCount = frames.length;
+    return texture;
+}
+
+function createRollLabelTexture(frame, source) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 720;
+    const context = canvas.getContext("2d");
+    drawCover(context, frame, 0, 0, canvas.width, canvas.height);
+
+    const shade = context.createLinearGradient(0, 0, canvas.width, 0);
+    shade.addColorStop(0, "rgba(9,8,7,.88)");
+    shade.addColorStop(0.22, "rgba(9,8,7,.1)");
+    shade.addColorStop(0.72, "rgba(9,8,7,.15)");
+    shade.addColorStop(1, "rgba(9,8,7,.92)");
+    context.fillStyle = shade;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.fillStyle = "rgba(20,14,10,.92)";
+    context.fillRect(0, 0, canvas.width, 72);
+    context.fillRect(0, canvas.height - 72, canvas.width, 72);
+    context.fillStyle = source.accent;
+    context.fillRect(74, 72, 18, canvas.height - 144);
+    context.fillRect(canvas.width - 92, 72, 18, canvas.height - 144);
+    context.fillStyle = "#090807";
+    for (let holeX = 24; holeX < canvas.width; holeX += 62) {
+        context.beginPath();
+        context.roundRect(holeX, 22, 34, 22, 5);
+        context.fill();
+        context.beginPath();
+        context.roundRect(holeX, canvas.height - 45, 34, 22, 5);
+        context.fill();
+    }
+
+    const bottomFade = context.createLinearGradient(0, canvas.height * 0.68, 0, canvas.height);
+    bottomFade.addColorStop(0, "rgba(0,0,0,0)");
+    bottomFade.addColorStop(0.7, "rgba(0,0,0,.82)");
+    bottomFade.addColorStop(1, "rgba(0,0,0,1)");
+    context.fillStyle = bottomFade;
+    context.fillRect(0, canvas.height * 0.68, canvas.width, canvas.height * 0.32);
+
+    const texture = canvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    return texture;
+}
+
+function seededRandom(seed) {
+    let value = seed >>> 0;
+    return () => {
+        value = (value * 1664525 + 1013904223) >>> 0;
+        return value / 4294967296;
+    };
+}
+
+function addCardboardGrain(context, width, height, seed) {
+    const random = seededRandom(seed);
+    context.save();
+    for (let index = 0; index < 1400; index += 1) {
+        const alpha = 0.018 + random() * 0.045;
+        const light = random() > 0.52 ? 255 : 18;
+        context.fillStyle = `rgba(${light},${light},${light},${alpha})`;
+        context.fillRect(random() * width, random() * height, 1 + random() * 3, 1 + random() * 2);
+    }
+    context.strokeStyle = "rgba(255,255,255,.035)";
+    context.lineWidth = 1;
+    for (let index = 0; index < 34; index += 1) {
+        const y = random() * height;
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(width, y + (random() - 0.5) * 5);
+        context.stroke();
+    }
+    context.restore();
+}
+
+function createBoxFaceTexture(frame, source, boxIndex, face) {
+    const dimensions = face === "side" ? [512, 720] : face === "top" || face === "bottom" ? [1024, 576] : [1024, 720];
+    const canvas = document.createElement("canvas");
+    [canvas.width, canvas.height] = dimensions;
+    const context = canvas.getContext("2d");
+    const { width, height } = canvas;
+
+    context.fillStyle = "#141210";
+    context.fillRect(0, 0, width, height);
+    context.save();
+    if (face === "back") {
+        context.translate(width, 0);
+        context.scale(-1, 1);
+    }
+    context.globalAlpha = face === "side" ? 0.66 : face === "bottom" ? 0.28 : 1;
+    drawCover(context, frame, 0, 0, width, height);
+    context.restore();
+
+    const shade = context.createLinearGradient(0, 0, width, height);
+    shade.addColorStop(0, face === "front" ? "rgba(5,4,3,.05)" : "rgba(5,4,3,.3)");
+    shade.addColorStop(0.58, "rgba(5,4,3,.12)");
+    shade.addColorStop(1, "rgba(5,4,3,.72)");
+    context.fillStyle = shade;
+    context.fillRect(0, 0, width, height);
+
+    context.save();
+    context.globalAlpha = face === "front" || face === "back" ? 0.9 : 0.72;
+    context.fillStyle = source.accent;
+    if (face === "side") {
+        context.fillRect(0, 0, width * 0.15, height);
+        context.fillRect(width * 0.72, 0, width * 0.28, height);
+    } else if (face === "top" || face === "bottom") {
+        context.fillRect(0, 0, width, height * 0.18);
+        context.fillRect(width * 0.74, 0, width * 0.26, height);
+    } else {
+        context.fillRect(0, 0, width * 0.042, height);
+        context.fillRect(0, height * 0.84, width, height * 0.16);
+    }
+    context.restore();
+
+    context.strokeStyle = "rgba(8,6,5,.82)";
+    context.lineWidth = Math.max(10, width * 0.014);
+    context.strokeRect(4, 4, width - 8, height - 8);
+    context.strokeStyle = "rgba(255,244,224,.16)";
+    context.lineWidth = 2;
+    context.strokeRect(15, 15, width - 30, height - 30);
+
+    if (face === "front" || face === "back") {
+        context.strokeStyle = "rgba(255,248,234,.56)";
+        context.lineWidth = 7;
+        context.beginPath();
+        context.arc(width - 118, height - 112, 48 + boxIndex * 3, 0, Math.PI * 2);
+        context.stroke();
+    }
+
+    addCardboardGrain(context, width, height, 911 + boxIndex * 101 + face.length * 17);
+    return canvasTexture(canvas);
+}
+
+function createBoxFaceTextures(frame, source, boxIndex) {
+    return {
+        front: createBoxFaceTexture(frame, source, boxIndex, "front"),
+        back: createBoxFaceTexture(frame, source, boxIndex, "back"),
+        side: createBoxFaceTexture(frame, source, boxIndex, "side"),
+        top: createBoxFaceTexture(frame, source, boxIndex, "top"),
+        bottom: createBoxFaceTexture(frame, source, boxIndex, "bottom")
+    };
+}
+
+function getCardboardSurfaceTexture() {
+    if (cardboardSurfaceTexture) return cardboardSurfaceTexture;
+    const size = 128;
+    const data = new Uint8Array(size * size * 4);
+    const random = seededRandom(24681357);
+    for (let index = 0; index < size * size; index += 1) {
+        const value = Math.round(150 + random() * 92);
+        const offset = index * 4;
+        data[offset] = value;
+        data[offset + 1] = value;
+        data[offset + 2] = value;
+        data[offset + 3] = 255;
+    }
+    cardboardSurfaceTexture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    cardboardSurfaceTexture.colorSpace = THREE.NoColorSpace;
+    cardboardSurfaceTexture.wrapS = THREE.RepeatWrapping;
+    cardboardSurfaceTexture.wrapT = THREE.RepeatWrapping;
+    cardboardSurfaceTexture.repeat.set(3, 3);
+    cardboardSurfaceTexture.minFilter = THREE.LinearFilter;
+    cardboardSurfaceTexture.magFilter = THREE.LinearFilter;
+    cardboardSurfaceTexture.needsUpdate = true;
+    return cardboardSurfaceTexture;
+}
+
+function createRoll(frame, source, rollIndex) {
+    const group = new THREE.Group();
+    const labelTexture = createRollLabelTexture(frame, source);
+    const labelMaterial = new THREE.MeshStandardMaterial({
+        map: labelTexture,
+        roughness: 0.5,
+        metalness: 0.08
+    });
+    const endMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x0b0a09,
+        roughness: 0.28,
+        metalness: 0.58,
+        clearcoat: 0.65,
+        clearcoatRoughness: 0.22
+    });
+    const hiddenBottomMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        toneMapped: false
+    });
+    const trimMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3e342c,
+        roughness: 0.34,
+        metalness: 0.72
+    });
+
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.94, 0.94, 2.22, 64, 1, false),
+        [labelMaterial, endMaterial, hiddenBottomMaterial]
+    );
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    for (const y of [1.16]) {
+        const flange = new THREE.Mesh(new THREE.CylinderGeometry(1.08, 1.08, 0.15, 64), endMaterial);
+        flange.position.y = y;
+        flange.castShadow = true;
+        group.add(flange);
+
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.91, 0.042, 12, 64), trimMaterial);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = y + Math.sign(y) * 0.084;
+        group.add(ring);
+    }
+
+    const topHub = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.37, 0.32, 48), endMaterial);
+    topHub.position.y = 1.38;
+    topHub.castShadow = true;
+    group.add(topHub);
+
+    const hubRing = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.032, 10, 48), trimMaterial);
+    hubRing.rotation.x = Math.PI / 2;
+    hubRing.position.y = 1.55;
+    group.add(hubRing);
+
+    group.rotation.x = -0.055 - rollIndex * 0.012;
+    group.rotation.z = [0.015, -0.025, 0.022][rollIndex];
+    group.userData.direction = ROLL_DIRECTIONS[rollIndex];
+    group.userData.spinSpeed = [0.03, 0.028][rollIndex] * ROLL_DIRECTIONS[rollIndex];
+    group.userData.labelTexture = labelTexture;
+    sceneRoot.add(group);
+    rolls.push(group);
+}
+
+function createRibbon(frames, rowIndex) {
+    const geometry = new THREE.PlaneGeometry(BASE_RIBBON_WIDTH, RIBBON_HEIGHT, 128, 3);
+    const positions = geometry.attributes.position;
+    geometry.userData.basePositions = new Float32Array(positions.array);
+
+    const atlas = createFilmAtlas(frames, rowIndex);
+    atlas.repeat.set(1.5, 1);
+    const material = new THREE.MeshBasicMaterial({
+        map: atlas,
+        color: 0xffffff,
+        transparent: true,
+        alphaTest: 0.16,
+        side: THREE.DoubleSide,
+        toneMapped: false
+    });
+
+    const ribbon = new THREE.Mesh(geometry, material);
+    ribbon.frustumCulled = false;
+    ribbon.receiveShadow = true;
+    ribbon.userData = {
+        atlas,
+        phase: [0.2, 2.1, 4.4][rowIndex],
+        amplitude: [0.32, 0.28][rowIndex],
+        depth: [0.46, 0.4][rowIndex],
+        cellsPerSecond: [0.07, 0.06][rowIndex] * FILM_SPEED_MULTIPLIER,
+        direction: ROLL_DIRECTIONS[rowIndex],
+        flowOffset: rowIndex * 0.17
+    };
+
+    sceneRoot.add(ribbon);
+    ribbons.push(ribbon);
+}
+
+function createFilmBox(frame, source, boxIndex) {
+    const group = new THREE.Group();
+    const faceTextures = createBoxFaceTextures(frame, source, boxIndex);
+    const surfaceTexture = getCardboardSurfaceTexture();
+    const createPackageMaterial = (map, roughness = 0.88) => new THREE.MeshStandardMaterial({
+        map,
+        roughness,
+        roughnessMap: surfaceTexture,
+        bumpMap: surfaceTexture,
+        bumpScale: 0.018,
+        metalness: 0.015
+    });
+    const sideMaterial = createPackageMaterial(faceTextures.side, 0.92);
+    const topMaterial = createPackageMaterial(faceTextures.top, 0.86);
+    const bottomMaterial = createPackageMaterial(faceTextures.bottom, 0.96);
+    const frontMaterial = createPackageMaterial(faceTextures.front, 0.84);
+    const backMaterial = createPackageMaterial(faceTextures.back, 0.9);
+    const geometry = new THREE.BoxGeometry(2.32, 1.62, 1.3);
+    const mesh = new THREE.Mesh(geometry, [sideMaterial, sideMaterial, topMaterial, bottomMaterial, frontMaterial, backMaterial]);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+
+    const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometry),
+        new THREE.LineBasicMaterial({ color: 0x32261d, transparent: true, opacity: 0.3 })
+    );
+    group.add(outline);
+
+    group.userData = {
+        source,
+        route: source.route,
+        faceTextures,
+        slot: boxIndex,
+        jitterX: [0, -0.005, 0.004, -0.004, 0][boxIndex],
+        jitterY: [0.05, 0.1, 0.02, 0.08, 0.04][boxIndex],
+        rotationX: -0.13 + (Math.random() - 0.5) * 0.05,
+        rotationY: [0.4, -0.34, 0.27, -0.42, 0.36][boxIndex] + (Math.random() - 0.5) * 0.15,
+        rotationZ: (Math.random() - 0.5) * 0.13,
+        spinSpeed: [0.011, -0.009, 0.01, -0.012, 0.008][boxIndex] * (0.9 + Math.random() * 0.2),
+        floatPhase: Math.random() * Math.PI * 2
+    };
+    mesh.userData.boxGroup = group;
+    mesh.userData.route = source.route;
+    boxHitMeshes.push(mesh);
+    group.rotation.set(group.userData.rotationX, group.userData.rotationY, group.userData.rotationZ);
+    sceneRoot.add(group);
+    boxes.push(group);
+}
+
+function createFloor() {
+    floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(60, 16),
+        new THREE.MeshBasicMaterial({ color: 0x000000, toneMapped: false })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, -6.22, -0.8);
+    floor.receiveShadow = false;
+    sceneRoot.add(floor);
+}
+
+function createDust() {
+    const count = 180;
+    const positions = new Float32Array(count * 3);
+    for (let index = 0; index < count; index += 1) {
+        positions[index * 3] = (Math.random() - 0.5) * 36;
+        positions[index * 3 + 1] = (Math.random() - 0.5) * 14;
+        positions[index * 3 + 2] = -2 - Math.random() * 8;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    dust = new THREE.Points(
+        geometry,
+        new THREE.PointsMaterial({ color: 0xd0a375, size: 0.024, transparent: true, opacity: 0.28, depthWrite: false })
+    );
+    sceneRoot.add(dust);
+}
+
+function viewBoundsAtDepth(depth = 0) {
+    const distance = camera.position.z - depth;
+    const height = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance;
+    const width = height * camera.aspect;
+    return {
+        width,
+        height,
+        left: -width / 2,
+        right: width / 2,
+        top: height / 2,
+        bottom: -height / 2
+    };
+}
+
+function layoutScene() {
+    if (!initialized) return;
+    const bounds = viewBoundsAtDepth(0);
+    const narrow = bounds.width < 9;
+    const rollScale = narrow ? clamp(bounds.width / 5.8, 0.9, 1.08) : 1.55;
+    const rollExtent = 1.08 * rollScale;
+    const leftReelX = bounds.left + rollExtent * 1.35;
+    const rightReelX = bounds.right - rollExtent * 1.35;
+    const reelX = [leftReelX, rightReelX, leftReelX];
+
+    rolls.forEach((roll, index) => {
+        const rowY = narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
+        roll.scale.setScalar(rollScale);
+        roll.position.set(reelX[index], rowY, 0.62 + index * 0.04);
+    });
+
+    ribbons.forEach((ribbon, index) => {
+        const rowY = narrow ? NARROW_ROW_Y[index] : ROW_Y[index];
+        const direction = ribbon.userData.direction;
+        const startX = direction > 0 ? reelX[index] + 0.52 * rollScale : bounds.left - 1.15;
+        const endX = direction > 0 ? bounds.right + 1.15 : reelX[index] - 0.52 * rollScale;
+        const width = Math.max(endX - startX, 3.8);
+        ribbon.position.set((startX + endX) / 2, rowY, -0.03 - index * 0.035);
+        const ribbonScaleY = narrow ? 0.58 : 1;
+        ribbon.scale.set(width / BASE_RIBBON_WIDTH, ribbonScaleY, 1);
+        const frameCount = Math.max(ribbon.userData.atlas.userData.frameCount || 1, 1);
+        const targetCellWidth = RIBBON_HEIGHT
+            * ribbonScaleY
+            * FILM_CELL_LAYOUT_WIDTH
+            / FILM_CELL_LAYOUT_HEIGHT;
+        ribbon.userData.atlas.repeat.x = clamp((width / targetCellWidth) / frameCount, 0.055, 1.1);
+
+    });
+
+    const boxScale = narrow ? clamp(bounds.width / 8.5, 0.62, 0.78) : clamp(bounds.width / 19, 1.12, 1.28);
+    const boxLeft = narrow ? bounds.left + 1.58 * boxScale : bounds.left + bounds.width * 0.18;
+    const boxRight = narrow ? bounds.right - 1.58 * boxScale : bounds.right - bounds.width * 0.18;
+    const available = Math.max(boxRight - boxLeft, 0.7);
+
+    boxes.forEach((box, index) => {
+        const slot = boxes.length > 1 ? index / (boxes.length - 1) : 0.5;
+        const x = boxLeft + available * slot + available * box.userData.jitterX;
+        const y = bounds.bottom + 1.7 * boxScale + box.userData.jitterY;
+        box.scale.setScalar(boxScale);
+        box.position.set(x, y, 1.02 + (index % 3) * 0.12);
+    });
+
+    if (floor) floor.position.y = bounds.bottom + 0.24;
+}
+
+function updateRibbon(ribbon, elapsedSeconds) {
+    const positions = ribbon.geometry.attributes.position;
+    const base = ribbon.geometry.userData.basePositions;
+    const reduced = motionPreference.matches;
+    const time = reduced ? 0 : elapsedSeconds;
+    const phase = ribbon.userData.phase;
+
+    for (let index = 0; index < positions.count; index += 1) {
+        const offset = index * 3;
+        const x = base[offset];
+        const originalY = base[offset + 1];
+        const u = (x + BASE_RIBBON_WIDTH / 2) / BASE_RIBBON_WIDTH;
+        const curveU = ribbon.userData.direction > 0 ? u : 1 - u;
+        const envelope = smoothstep(0.04, 0.23, curveU);
+        const primary = Math.sin(curveU * Math.PI * 3.35 - time * 0.22 + phase);
+        const secondary = Math.sin(curveU * Math.PI * 7.2 + time * 0.1 + phase * 0.7);
+        const waveY = envelope * ribbon.userData.amplitude * (primary + secondary * 0.1);
+        const waveZ = envelope * ribbon.userData.depth * Math.sin(curveU * Math.PI * 2.55 + time * 0.18 + phase);
+        const twist = envelope * (originalY / RIBBON_HEIGHT) * Math.sin(curveU * Math.PI * 4.4 - time * 0.13 + phase) * 0.08;
+        positions.setXYZ(index, x, originalY + waveY, waveZ + twist);
+    }
+    positions.needsUpdate = true;
 }
 
 function resize() {
     const width = Math.max(stage.clientWidth, 1);
     const height = Math.max(stage.clientHeight, 1);
-    const isMobile = width < 700;
-    camera.fov = isMobile ? 41 : 32;
-    camera.position.z = isMobile ? 15.4 : 15.3;
     camera.aspect = width / height;
+    camera.fov = width < 720 ? 42 : 39;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.35 : 1.7));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 720 ? 1.4 : 1.75));
     renderer.setSize(width, height, false);
+    layoutScene();
 }
 
-function setPointerPosition(event) {
+function getBoxAtPointer(event) {
     const rect = renderer.domElement.getBoundingClientRect();
-    return {
-        x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        y: -((event.clientY - rect.top) / rect.height) * 2 + 1
-    };
+    pointerNdc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycaster.setFromCamera(pointerNdc, camera);
+    const hit = raycaster.intersectObjects(boxHitMeshes, false)[0];
+    return hit?.object.userData.boxGroup || null;
 }
 
-function startDrag(event) {
-    if (!imageSources.length) return;
-    stage.focus({ preventScroll: true });
-    dragState = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        offsets: rows.map(row => row.offset),
-        wasPlaying: playing
-    };
-    stage.classList.add("is-dragging");
-    renderer.domElement.setPointerCapture(event.pointerId);
-    playing = false;
+function updateBoxHover(event) {
+    if (!initialized) return;
+    stage.classList.toggle("is-box-hovered", Boolean(getBoxAtPointer(event)));
 }
 
-function moveDrag(event) {
-    if (!dragState || event.pointerId !== dragState.pointerId) return;
-    const dx = event.clientX - dragState.startX;
-    const worldDx = dx * stageWorldPerPixel();
-    rows.forEach((row, index) => {
-        row.offset = dragState.offsets[index] + worldDx * row.config.drag;
-        row.track.position.x = wrap(row.offset, row.span);
-    });
-}
-
-function endDrag(event) {
-    if (!dragState || event.pointerId !== dragState.pointerId) return;
-    if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
-    const shouldResume = dragState.wasPlaying;
-    dragState = null;
-    stage.classList.remove("is-dragging");
-    playing = shouldResume;
-}
-
-function handleWheel(event) {
-    event.preventDefault();
-    const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * -stageWorldPerPixel() * 0.9;
-    rows.forEach(row => {
-        row.offset += delta * row.config.drag;
-        row.track.position.x = wrap(row.offset, row.span);
-    });
+function handleBoxClick(event) {
+    if (!initialized) return;
+    const box = getBoxAtPointer(event);
+    if (box?.userData.route) {
+        lobbyMusic.pause();
+        requestExperiencePlayback(box.userData.route);
+        window.location.assign(box.userData.route);
+    }
 }
 
 function tick(now) {
     const deltaSeconds = Math.min((now - lastFrameTime) / 1000, 0.05);
+    const elapsedSeconds = now / 1000;
     lastFrameTime = now;
+    const reduced = motionPreference.matches;
 
-    if (playing && !dragState) {
-        rows.forEach(row => {
-            row.offset += row.config.speed * deltaSeconds;
-            row.track.position.x = wrap(row.offset, row.span);
+    ribbons.forEach(ribbon => {
+        if (!reduced) {
+            const frameCount = Math.max(ribbon.userData.atlas.userData.frameCount || 1, 1);
+            ribbon.userData.flowOffset = wrap01(
+                ribbon.userData.flowOffset
+                - ribbon.userData.cellsPerSecond / frameCount * deltaSeconds * ribbon.userData.direction
+            );
+        }
+        ribbon.userData.atlas.offset.x = ribbon.userData.flowOffset;
+        updateRibbon(ribbon, elapsedSeconds);
+    });
+
+    if (!reduced) {
+        rolls.forEach(roll => {
+            roll.rotation.y -= roll.userData.spinSpeed * deltaSeconds;
         });
+        boxes.forEach(box => {
+            box.rotation.x = box.userData.rotationX + Math.sin(elapsedSeconds * 0.38 + box.userData.floatPhase) * 0.012;
+            box.rotation.y += box.userData.spinSpeed * deltaSeconds;
+        });
+        if (dust) dust.rotation.z = Math.sin(elapsedSeconds * 0.035) * 0.02;
     }
 
     renderer.render(scene, camera);
-    requestAnimationFrame(tick);
+    window.requestAnimationFrame(tick);
 }
 
-renderer.domElement.addEventListener("pointerdown", startDrag);
-renderer.domElement.addEventListener("pointermove", moveDrag);
-renderer.domElement.addEventListener("pointerup", endDrag);
-renderer.domElement.addEventListener("pointercancel", endDrag);
-renderer.domElement.addEventListener("wheel", handleWheel, { passive: false });
-window.addEventListener("resize", resize, { passive: true });
+function replaceRibbonAtlases(frames) {
+    ribbons.forEach((ribbon, rowIndex) => {
+        const previousAtlas = ribbon.userData.atlas;
+        const nextAtlas = createFilmAtlas(frames, rowIndex);
+        nextAtlas.offset.copy(previousAtlas.offset);
+        ribbon.userData.atlas = nextAtlas;
+        ribbon.material.map = nextAtlas;
+        ribbon.material.needsUpdate = true;
+        previousAtlas.dispose();
+    });
+    layoutScene();
+}
+
+async function refreshFilmPhotos() {
+    if (photoRefreshBusy) return;
+    photoRefreshBusy = true;
+    try {
+        const urls = limitPhotoUrls(await fetchFilmPhotoUrls());
+        const signature = urls.join("|");
+        if (signature === filmPhotoSignature) return;
+        const frames = await Promise.all(urls.map(loadPhotoFrame));
+        replaceRibbonAtlases(frames);
+        filmPhotoSignature = signature;
+    } catch (error) {
+        console.warn("更新今日底片照片失敗。", error);
+    } finally {
+        photoRefreshBusy = false;
+    }
+}
 
 async function initialize() {
     resize();
-    await refreshSources({ initial: true });
-    requestAnimationFrame(tick);
-    window.setInterval(() => refreshSources(), POLL_INTERVAL);
+    const [videoFrames, filmPhotoSet] = await Promise.all([
+        loadFirstFrames(),
+        loadFilmPhotoSet()
+    ]);
+    filmPhotoSignature = filmPhotoSet.urls.join("|");
+
+    createFloor();
+    ROLL_SOURCE_INDEXES.forEach((sourceIndex, rollIndex) => {
+        createRibbon(filmPhotoSet.frames, rollIndex);
+        createRoll(videoFrames[sourceIndex], VIDEO_SOURCES[sourceIndex], rollIndex);
+    });
+    BOX_SOURCE_INDEXES.forEach((sourceIndex, boxIndex) => {
+        createFilmBox(videoFrames[sourceIndex], VIDEO_SOURCES[sourceIndex], boxIndex);
+    });
+
+    initialized = true;
+    layoutScene();
+    stage.classList.add("is-ready");
+    window.requestAnimationFrame(tick);
+    window.setInterval(refreshFilmPhotos, PHOTO_POLL_INTERVAL);
 }
 
-initialize();
+renderer.domElement.addEventListener("pointermove", updateBoxHover);
+renderer.domElement.addEventListener("click", handleBoxClick);
+renderer.domElement.addEventListener("pointerleave", () => {
+    stage.classList.remove("is-box-hovered");
+});
+window.addEventListener("resize", resize, { passive: true });
+document.addEventListener("visibilitychange", () => {
+    lastFrameTime = performance.now();
+    if (document.hidden) {
+        lobbyMusic.pause();
+    } else {
+        void startLobbyMusic();
+    }
+});
+window.addEventListener("pageshow", () => {
+    void startLobbyMusic();
+});
+window.addEventListener("pagehide", () => {
+    lobbyMusic.pause();
+});
+
+initialize().catch(error => {
+    console.error("膠捲場景初始化失敗", error);
+    stage.classList.add("has-error");
+});

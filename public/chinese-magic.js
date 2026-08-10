@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
+import { createExperiencePlayback } from "/experience-playback.js?v=1";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -1677,6 +1678,9 @@ function resize() {
 
 
 const video = document.getElementById('sourceVideo');
+const soundtrack = document.getElementById('soundtrack');
+soundtrack.volume = 0.9;
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
 let videoPhase = 'playing';
 let videoPlane;
 let laserEnergySphere;
@@ -1910,7 +1914,7 @@ async function init() {
             spherePositions.push(new THREE.Vector3(sx, sy, sz));
         }
         
-        video.play().catch(e => console.log('Video play error:', e));
+        entryPlayback.play().catch(e => console.log('Video play error:', e));
     };
 
     if (video.readyState >= 1) {

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
+import { createExperiencePlayback } from "/experience-playback.js?v=2";
 
 // 人物畫廊候選圖庫
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
@@ -9,6 +10,9 @@ const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
 
 const stage = document.querySelector("#magicStage");
 const video = document.getElementById("sourceVideo");
+const soundtrack = document.getElementById("soundtrack");
+soundtrack.volume = 0.9;
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
 
 // Three.js 核心組件
 const scene = new THREE.Scene();
@@ -252,8 +256,9 @@ function loadImage(url) {
 // ----------------------------------------------------
 let videoPlane = null;
 let winnerMesh = null;
-let state = "playing"; // playing -> smoking -> winner
-let startTime = 0;
+let state = "loading"; // loading -> playing -> smoking -> winner / blocked
+let startTime = Number.POSITIVE_INFINITY;
+let timelineNeedsSync = false;
 let winnerImage = null;
 
 // 設置影片 Plane
@@ -332,10 +337,40 @@ async function pickRandomWinner() {
     }
 }
 
-// 啟動 / 重播抽卡流程
-async function startMagicExperience() {
+function resetMedia() {
+    video.pause();
+    soundtrack.pause();
+    video.currentTime = 0;
+    soundtrack.currentTime = 0;
+}
+
+function syncTimelineToPlayback() {
+    if (!timelineNeedsSync) return;
+    timelineNeedsSync = false;
     state = "playing";
     startTime = performance.now() / 1000;
+    setSmokeState(0, 0, 0);
+}
+
+async function playMediaFromBeginning() {
+    resetMedia();
+    timelineNeedsSync = true;
+
+    try {
+        await entryPlayback.play();
+    } catch (error) {
+        resetMedia();
+        timelineNeedsSync = true;
+        state = "blocked";
+        startTime = Number.POSITIVE_INFINITY;
+        console.log("Video and soundtrack play error:", error);
+    }
+}
+
+// 啟動 / 重播抽卡流程
+async function startMagicExperience() {
+    state = "loading";
+    startTime = Number.POSITIVE_INFINITY;
 
     setSmokeState(0, 0, 0);
 
@@ -349,9 +384,7 @@ async function startMagicExperience() {
     }
 
     await pickRandomWinner();
-
-    video.currentTime = 0;
-    video.play().catch(err => console.log("Video play error:", err));
+    await playMediaFromBeginning();
 }
 
 // ----------------------------------------------------
@@ -459,6 +492,13 @@ function onWindowResize() {
 }
 
 window.addEventListener("resize", onWindowResize);
+video.addEventListener("playing", syncTimelineToPlayback);
+stage.addEventListener("click", () => {
+    if (state === "blocked") void playMediaFromBeginning();
+});
+window.addEventListener("pagehide", () => {
+    resetMedia();
+}, { once: true });
 
 // 初始化
 async function init() {
