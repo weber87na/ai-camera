@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createExperiencePlayback } from "/experience-playback.js?v=2";
+import { getPhotoCandidates, isUsableImageUrl, pickRandomPhoto } from "/lottery-photos.js?v=1";
 
 const stage = document.querySelector("#painterStage");
 const video = document.querySelector("#sourceVideo");
@@ -264,24 +265,6 @@ let videoDuration = 8;
 let winnerReady = false;
 let printStartedAt = null;
 
-function localDateString() {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function isUsableImageUrl(value) {
-    if (!value || typeof value !== "string") return false;
-    if (value.startsWith("data:image/")) return true;
-    try {
-        const url = new URL(value, window.location.origin);
-        return ["http:", "https:"].includes(url.protocol);
-    } catch {
-        return false;
-    }
-}
-
 function readImageOverride() {
     const params = new URLSearchParams(window.location.search);
     const queryValue = params.get("winner") || params.get("image") || params.get("winnerImage");
@@ -299,16 +282,8 @@ function readImageOverride() {
 }
 
 async function getRandomPhotoUrl() {
-    try {
-        const response = await fetch(`/api/photos/${localDateString()}`, { cache: "no-store" });
-        if (!response.ok) return "";
-        const data = await response.json();
-        const images = Array.isArray(data.images) ? data.images.filter(isUsableImageUrl) : [];
-        if (images.length === 0) return "";
-        return images[Math.floor(Math.random() * images.length)];
-    } catch {
-        return "";
-    }
+    const candidates = await getPhotoCandidates();
+    return pickRandomPhoto(candidates);
 }
 
 function loadImageTexture(url) {
@@ -473,9 +448,11 @@ function setSpiralPalette(palette) {
 }
 
 async function loadWinnerImage() {
-    const override = readImageOverride();
-    const randomPhoto = override ? "" : await getRandomPhotoUrl();
-    const candidates = [...new Set([override, randomPhoto, FALLBACK_WINNER].filter(Boolean))];
+    // Prefer a random image from today's storage directory. Older query or
+    // localStorage overrides remain available only when today's directory is empty.
+    const randomPhoto = await getRandomPhotoUrl();
+    const override = randomPhoto ? "" : readImageOverride();
+    const candidates = [...new Set([randomPhoto, override, FALLBACK_WINNER].filter(Boolean))];
 
     for (const candidate of candidates) {
         try {

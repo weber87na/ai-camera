@@ -3,6 +3,7 @@ import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -143,27 +144,8 @@ function waitForUserStart() {
     });
 }
 
-function localDateString() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
 async function getCandidateImages() {
-    try {
-        const response = await fetch(`/api/photos/${localDateString()}`, { cache: "no-store" });
-        if (!response.ok) throw new Error(`Photo API returned ${response.status}`);
-
-        const data = await response.json();
-        const liveImages = Array.isArray(data.images) ? data.images.filter(Boolean) : [];
-        if (liveImages.length) return liveImages;
-    } catch (error) {
-        console.warn("Today's portraits are unavailable; using the built-in gallery.", error);
-    }
-
-    return REFERENCE_IMAGES;
+    return getPhotoCandidates(REFERENCE_IMAGES);
 }
 
 function setupVideoPlane() {
@@ -766,7 +748,7 @@ function createWinnerDecal(image) {
 
 async function pickRandomWinner() {
     const candidates = await getCandidateImages();
-    const winnerUrl = candidates[Math.floor(Math.random() * candidates.length)];
+    const winnerUrl = pickRandomPhoto(candidates);
     winnerImage = await loadImage(winnerUrl);
     createWinnerDecal(winnerImage);
 }

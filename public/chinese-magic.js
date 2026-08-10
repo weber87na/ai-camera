@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -1786,8 +1787,8 @@ const godRayUniforms = {
 };
 
 async function init() {
-    
-    const winnerUrl = '/images/style-04.webp';
+    const winnerCandidates = await getPhotoCandidates(REFERENCE_IMAGES);
+    const winnerUrl = pickRandomPhoto(winnerCandidates);
     const winnerImg = await loadImage(winnerUrl);
     window.globalWinnerEntry = { url: winnerUrl, image: winnerImg };
 

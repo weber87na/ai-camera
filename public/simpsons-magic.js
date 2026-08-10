@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=2";
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
 
 // 人物畫廊候選圖庫
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
@@ -328,7 +329,8 @@ function createWinnerCard(img) {
 
 // 隨機選擇獲勝人物
 async function pickRandomWinner() {
-    const randomUrl = REFERENCE_IMAGES[Math.floor(Math.random() * REFERENCE_IMAGES.length)];
+    const candidates = await getPhotoCandidates(REFERENCE_IMAGES);
+    const randomUrl = pickRandomPhoto(candidates);
     try {
         winnerImage = await loadImage(randomUrl);
         createWinnerCard(winnerImage);
