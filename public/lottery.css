@@ -88,6 +88,24 @@ body {
     touch-action: auto;
 }
 
+.film-video-sources {
+    position: absolute;
+    z-index: 0;
+    top: -2px;
+    left: -2px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.film-video-source {
+    display: block;
+    width: 1px;
+    height: 1px;
+}
+
 .film-stage.is-box-hovered canvas {
     cursor: pointer;
 }

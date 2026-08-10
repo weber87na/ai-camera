@@ -9,6 +9,12 @@ const VIDEO_SOURCES = [
     { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83", boxTexture: "/images/paint-packaging.png" }
 ];
 
+const FILM_VIDEO_SOURCES = [
+    { key: "cyc", url: "/example-images/CYC.mp4", label: "CYC" },
+    { key: "poison", url: "/example-images/毒藥.mp4", label: "毒藥" }
+];
+const FILM_ATLAS_VIDEO_COUNT = 1;
+
 const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
     return `/example-images/${number}.jpg`;
@@ -32,13 +38,66 @@ const FILM_CELL_WIDTH = FILM_CELL_LAYOUT_WIDTH * FILM_ATLAS_SCALE;
 const FILM_CELL_HEIGHT = FILM_CELL_LAYOUT_HEIGHT * FILM_ATLAS_SCALE;
 const FILM_FRAME_INSET_X = 8 * FILM_ATLAS_SCALE;
 const FILM_FRAME_INSET_Y = 34 * FILM_ATLAS_SCALE;
+const MAX_FILM_FRAME_COUNT = 16;
 const FILM_SPEED_MULTIPLIER = 2.5;
 const PHOTO_POLL_INTERVAL = 15_000;
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const stage = document.querySelector("#filmStage");
 const lobbyMusic = document.querySelector("#lobbyMusic");
+const tvStaticNoise = document.querySelector("#tvStaticNoise");
+let filmVideoEntries = [];
+let filmVideoTextures = [];
 lobbyMusic.volume = 0.2;
+if (tvStaticNoise) tvStaticNoise.volume = 0.28;
+
+function stopTvStaticNoise() {
+    if (!tvStaticNoise) return;
+    tvStaticNoise.pause();
+    tvStaticNoise.currentTime = 0;
+}
+
+function playTvStaticNoise() {
+    if (!tvStaticNoise || document.hidden) return;
+    tvStaticNoise.currentTime = 0;
+    try {
+        void tvStaticNoise.play().catch(() => false);
+    } catch {
+        // Playback can still be blocked until the first user gesture.
+    }
+}
+
+function startFilmVideos() {
+    const playRequests = filmVideoEntries
+        .filter(entry => entry.kind === "video" && entry.media?.tagName === "VIDEO")
+        .map(entry => {
+            entry.media.loop = true;
+            entry.media.muted = true;
+            entry.media.defaultMuted = true;
+            try {
+                return entry.media.play().catch(() => false);
+            } catch {
+                return Promise.resolve(false);
+            }
+        });
+    return Promise.all(playRequests);
+}
+
+function keepFilmVideosPlaying() {
+    if (document.hidden) return;
+    for (const entry of filmVideoEntries) {
+        if (entry.kind !== "video" || entry.media?.tagName !== "VIDEO") continue;
+        const video = entry.media;
+        const duration = video.duration;
+        if (video.readyState < 2 || !Number.isFinite(duration) || duration <= 0) continue;
+        if (video.ended || video.currentTime >= duration - 0.04) {
+            video.currentTime = 0;
+        }
+        if (video.paused) {
+            void video.play().catch(() => {});
+        }
+    }
+}
 
 function removeLobbyMusicUnlockListeners() {
     window.removeEventListener("pointerdown", handleLobbyMusicUnlock, true);
@@ -47,6 +106,7 @@ function removeLobbyMusicUnlockListeners() {
 
 async function startLobbyMusic() {
     if (document.hidden) return false;
+    void startFilmVideos();
     try {
         await lobbyMusic.play();
         removeLobbyMusicUnlockListeners();
@@ -316,6 +376,61 @@ function imageDimensions(image) {
     };
 }
 
+function loadFilmVideoEntries() {
+    return Promise.all(FILM_VIDEO_SOURCES.map((source, index) => new Promise(resolve => {
+        let video = document.querySelector(`[data-film-video="${source.key}"]`);
+        if (!video) {
+            video = document.createElement("video");
+            video.className = "film-video-source";
+            video.dataset.filmVideo = source.key;
+            video.src = source.url;
+            video.preload = "auto";
+            video.autoplay = true;
+            video.loop = true;
+            video.muted = true;
+            video.defaultMuted = true;
+            video.playsInline = true;
+            document.body.appendChild(video);
+        }
+
+        video.loop = true;
+        video.muted = true;
+        video.defaultMuted = true;
+        video.playsInline = true;
+
+        const resolveVideo = () => {
+            void video.play().catch(() => {});
+            resolve({ kind: "video", media: video, source });
+        };
+        const resolveFallback = () => {
+            console.warn(`無法載入膠捲影片：${source.url}`);
+            resolve({ kind: "image", media: createPhotoFallback(index), source });
+        };
+
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+            resolveVideo();
+            return;
+        }
+
+        video.addEventListener("loadeddata", resolveVideo, { once: true });
+        video.addEventListener("error", resolveFallback, { once: true });
+        video.load();
+    })));
+}
+
+function createFilmVideoTextures() {
+    filmVideoTextures = FILM_VIDEO_SOURCES.map((_source, index) => {
+        const entry = filmVideoEntries[index];
+        if (entry?.kind !== "video") return null;
+        const texture = new THREE.VideoTexture(entry.media);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = false;
+        return texture;
+    });
+}
+
 function drawCover(context, image, x, y, width, height) {
     const source = imageDimensions(image);
     const scale = Math.max(width / source.width, height / source.height);
@@ -401,8 +516,14 @@ function loadPhotoFrame(url, index) {
 
 function limitPhotoUrls(urls) {
     const textureLimit = Math.max(1, Math.floor(renderer.capabilities.maxTextureSize / FILM_CELL_WIDTH));
-    const frameLimit = Math.min(16, textureLimit);
-    return urls.slice(-frameLimit);
+    const photoFrameLimit = Math.max(
+        0,
+        Math.min(
+            MAX_FILM_FRAME_COUNT - FILM_ATLAS_VIDEO_COUNT,
+            textureLimit - FILM_ATLAS_VIDEO_COUNT
+        )
+    );
+    return photoFrameLimit > 0 ? urls.slice(-photoFrameLimit) : [];
 }
 
 async function loadFilmPhotoSet() {
@@ -417,6 +538,13 @@ function canvasTexture(canvas) {
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     texture.needsUpdate = true;
     return texture;
+}
+
+function createFilmFrameEntries(frames, rowIndex) {
+    return [
+        filmVideoEntries[rowIndex],
+        ...frames.map((media, index) => ({ kind: "image", media, index }))
+    ].filter(Boolean);
 }
 
 function drawPerforations(context, x, width, canvasHeight) {
@@ -436,58 +564,166 @@ function drawPerforations(context, x, width, canvasHeight) {
     context.restore();
 }
 
-function createFilmAtlas(frames, rowIndex) {
+function drawFilmCell(context, entry, x) {
+    const cellWidth = FILM_CELL_WIDTH;
+    const cellHeight = FILM_CELL_HEIGHT;
+    const media = entry?.media;
+
+    context.fillStyle = "#281a10";
+    context.fillRect(x, 0, cellWidth, cellHeight);
+    context.fillStyle = "#120f0d";
+    context.fillRect(
+        x,
+        32 * FILM_ATLAS_SCALE,
+        cellWidth,
+        cellHeight - 64 * FILM_ATLAS_SCALE
+    );
+
+    const frameX = x + FILM_FRAME_INSET_X;
+    const frameY = FILM_FRAME_INSET_Y;
+    const frameWidth = cellWidth - FILM_FRAME_INSET_X * 2;
+    const frameHeight = cellHeight - FILM_FRAME_INSET_Y * 2;
+    // Live video cells are rendered only by the VideoTexture shader. Keeping
+    // their static canvas cell black prevents the first frame from showing
+    // through behind a later video frame and looking like a double exposure.
+    if (media && entry?.kind !== "video") {
+        drawContain(context, media, frameX, frameY, frameWidth, frameHeight);
+    } else {
+        context.fillStyle = "#050505";
+        context.fillRect(frameX, frameY, frameWidth, frameHeight);
+    }
+
+    context.strokeStyle = "rgba(238,175,103,.6)";
+    context.lineWidth = 2 * FILM_ATLAS_SCALE;
+    context.strokeRect(
+        frameX - 2 * FILM_ATLAS_SCALE,
+        frameY - 2 * FILM_ATLAS_SCALE,
+        frameWidth + 4 * FILM_ATLAS_SCALE,
+        frameHeight + 4 * FILM_ATLAS_SCALE
+    );
+    context.fillStyle = "rgba(238,175,103,.72)";
+    context.fillRect(
+        x + cellWidth - 2 * FILM_ATLAS_SCALE,
+        0,
+        2 * FILM_ATLAS_SCALE,
+        cellHeight
+    );
+    drawPerforations(context, x, cellWidth, cellHeight);
+}
+
+function getFilmVideoAspect(index) {
+    const media = filmVideoEntries[index]?.media;
+    return media?.videoWidth > 0 && media?.videoHeight > 0
+        ? media.videoWidth / media.videoHeight
+        : index === 0 ? 16 / 9 : 9 / 16;
+}
+
+function createFilmRibbonMaterial(atlas, frameCount, videoIndex) {
+    const material = new THREE.MeshBasicMaterial({
+        map: atlas,
+        color: 0xffffff,
+        transparent: true,
+        alphaTest: 0.16,
+        side: THREE.DoubleSide,
+        toneMapped: false
+    });
+    material.userData.filmFrameCount = frameCount;
+    material.customProgramCacheKey = () => "film-video-atlas-v1";
+    material.onBeforeCompile = shader => {
+        const videoTexture = filmVideoTextures[videoIndex] || atlas;
+        shader.uniforms.filmVideo = { value: videoTexture };
+        shader.uniforms.filmVideoEnabled = { value: Boolean(filmVideoTextures[videoIndex]) };
+        shader.uniforms.filmVideoAspect = { value: getFilmVideoAspect(videoIndex) };
+        shader.uniforms.filmVideoFrameCount = { value: material.userData.filmFrameCount };
+        material.userData.filmShader = shader;
+
+        const frameMinX = (FILM_FRAME_INSET_X / FILM_CELL_WIDTH).toFixed(8);
+        const frameMinY = (FILM_FRAME_INSET_Y / FILM_CELL_HEIGHT).toFixed(8);
+        const frameSizeX = (1 - FILM_FRAME_INSET_X * 2 / FILM_CELL_WIDTH).toFixed(8);
+        const frameSizeY = (1 - FILM_FRAME_INSET_Y * 2 / FILM_CELL_HEIGHT).toFixed(8);
+        const filmVideoProjection = `
+vec3 projectFilmVideo(vec2 cellUv, float videoAspect) {
+    vec2 frameUv = (cellUv - vec2(${frameMinX}, ${frameMinY})) / vec2(${frameSizeX}, ${frameSizeY});
+    if (frameUv.x < 0.0 || frameUv.x > 1.0 || frameUv.y < 0.0 || frameUv.y > 1.0) return vec3(0.0);
+
+    float frameAspect = ${frameSizeX} / ${frameSizeY};
+    vec2 videoUv = frameUv;
+    if (videoAspect > frameAspect) {
+        float contentHeight = frameAspect / videoAspect;
+        float contentMinY = 0.5 - contentHeight * 0.5;
+        if (frameUv.y < contentMinY || frameUv.y > contentMinY + contentHeight) return vec3(0.0);
+        videoUv.y = (frameUv.y - contentMinY) / contentHeight;
+    } else {
+        float contentWidth = videoAspect / frameAspect;
+        float contentMinX = 0.5 - contentWidth * 0.5;
+        if (frameUv.x < contentMinX || frameUv.x > contentMinX + contentWidth) return vec3(0.0);
+        videoUv.x = (frameUv.x - contentMinX) / contentWidth;
+    }
+    return vec3(videoUv, 1.0);
+}
+`;
+
+        shader.fragmentShader = shader.fragmentShader
+            .replace(
+                "#include <map_pars_fragment>",
+                `#include <map_pars_fragment>
+uniform sampler2D filmVideo;
+uniform bool filmVideoEnabled;
+uniform float filmVideoAspect;
+uniform float filmVideoFrameCount;
+${filmVideoProjection}`
+            )
+            .replace(
+                "#include <map_fragment>",
+                `#ifdef USE_MAP
+
+    vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+    vec2 filmAtlasUv = fract( vMapUv );
+    float filmCellPosition = filmAtlasUv.x * filmVideoFrameCount;
+    float filmCellIndex = floor( filmCellPosition );
+    vec2 filmCellUv = vec2( fract( filmCellPosition ), filmAtlasUv.y );
+
+    if ( filmVideoEnabled && filmCellIndex < 1.0 ) {
+        vec3 filmVideoUv = projectFilmVideo( filmCellUv, filmVideoAspect );
+        if ( filmVideoUv.z > 0.0 ) {
+            sampledDiffuseColor = sRGBTransferEOTF( texture2D( filmVideo, filmVideoUv.xy ) );
+        }
+    }
+
+    diffuseColor *= sampledDiffuseColor;
+
+#endif`
+            );
+    };
+    return material;
+}
+
+function createFilmAtlas(entries, rowIndex) {
     const cellWidth = FILM_CELL_WIDTH;
     const cellHeight = FILM_CELL_HEIGHT;
     const canvas = document.createElement("canvas");
-    canvas.width = cellWidth * frames.length;
+    canvas.width = cellWidth * Math.max(entries.length, 1);
     canvas.height = cellHeight;
     const context = canvas.getContext("2d");
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
     context.clearRect(0, 0, canvas.width, canvas.height);
+    const fixedVideoCount = Math.min(FILM_ATLAS_VIDEO_COUNT, entries.length);
+    const photoCount = Math.max(entries.length - fixedVideoCount, 0);
 
-    for (let cellIndex = 0; cellIndex < frames.length; cellIndex += 1) {
-        const sourceIndex = (cellIndex + rowIndex * 2) % frames.length;
+    for (let cellIndex = 0; cellIndex < entries.length; cellIndex += 1) {
+        const sourceIndex = cellIndex < fixedVideoCount
+            ? cellIndex
+            : fixedVideoCount + ((cellIndex - fixedVideoCount + rowIndex * 2) % Math.max(photoCount, 1));
+        const entry = entries[sourceIndex];
         const x = cellIndex * cellWidth;
-
-        context.fillStyle = "#281a10";
-        context.fillRect(x, 0, cellWidth, cellHeight);
-        context.fillStyle = "#120f0d";
-        context.fillRect(
-            x,
-            32 * FILM_ATLAS_SCALE,
-            cellWidth,
-            cellHeight - 64 * FILM_ATLAS_SCALE
-        );
-        const frameX = x + FILM_FRAME_INSET_X;
-        const frameY = FILM_FRAME_INSET_Y;
-        const frameWidth = cellWidth - FILM_FRAME_INSET_X * 2;
-        const frameHeight = cellHeight - FILM_FRAME_INSET_Y * 2;
-        drawContain(context, frames[sourceIndex], frameX, frameY, frameWidth, frameHeight);
-
-        context.strokeStyle = "rgba(238,175,103,.6)";
-        context.lineWidth = 2 * FILM_ATLAS_SCALE;
-        context.strokeRect(
-            frameX - 2 * FILM_ATLAS_SCALE,
-            frameY - 2 * FILM_ATLAS_SCALE,
-            frameWidth + 4 * FILM_ATLAS_SCALE,
-            frameHeight + 4 * FILM_ATLAS_SCALE
-        );
-        context.fillStyle = "rgba(238,175,103,.72)";
-        context.fillRect(
-            x + cellWidth - 2 * FILM_ATLAS_SCALE,
-            0,
-            2 * FILM_ATLAS_SCALE,
-            cellHeight
-        );
-        drawPerforations(context, x, cellWidth, cellHeight);
+        drawFilmCell(context, entry, x);
     }
 
     const texture = canvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.userData.frameCount = frames.length;
+    texture.userData.frameCount = Math.max(entries.length, 1);
     return texture;
 }
 
@@ -754,27 +990,21 @@ function createRoll(frame, source, rollIndex) {
     rolls.push(group);
 }
 
-function createRibbon(frames, rowIndex) {
+function createRibbon(entries, rowIndex) {
     const geometry = new THREE.PlaneGeometry(BASE_RIBBON_WIDTH, RIBBON_HEIGHT, 128, 3);
     const positions = geometry.attributes.position;
     geometry.userData.basePositions = new Float32Array(positions.array);
 
-    const atlas = createFilmAtlas(frames, rowIndex);
+    const atlas = createFilmAtlas(entries, rowIndex);
     atlas.repeat.set(1.5, 1);
-    const material = new THREE.MeshBasicMaterial({
-        map: atlas,
-        color: 0xffffff,
-        transparent: true,
-        alphaTest: 0.16,
-        side: THREE.DoubleSide,
-        toneMapped: false
-    });
+    const material = createFilmRibbonMaterial(atlas, entries.length, rowIndex);
 
     const ribbon = new THREE.Mesh(geometry, material);
     ribbon.frustumCulled = false;
     ribbon.receiveShadow = true;
     ribbon.userData = {
         atlas,
+        material,
         phase: [0.2, 2.1, 4.4][rowIndex],
         amplitude: [0.32, 0.28][rowIndex],
         depth: [0.46, 0.4][rowIndex],
@@ -962,6 +1192,7 @@ function updateRibbon(ribbon, elapsedSeconds) {
 
 function updateFilmNoise(elapsedSeconds, reduced) {
     if (reduced) {
+        stopTvStaticNoise();
         filmNoiseUniforms.uTime.value = 0;
         filmNoiseUniforms.uBurst.value = 0;
         filmNoiseUniforms.uIntensity.value = 0;
@@ -974,8 +1205,10 @@ function updateFilmNoise(elapsedSeconds, reduced) {
         filmNoiseBurstDuration = 0.7 + Math.random() * 0.8;
         filmNoiseUniforms.uSeed.value = Math.random() * 1000;
         filmNoiseNextBurstAt = elapsedSeconds + 4.5 + Math.random() * 7.5;
+        playTvStaticNoise();
     }
 
+    const previousBurst = filmNoiseUniforms.uBurst.value;
     const burstAge = elapsedSeconds - filmNoiseBurstStartedAt;
     const burstProgress = filmNoiseBurstDuration > 0
         ? burstAge / filmNoiseBurstDuration
@@ -984,8 +1217,10 @@ function updateFilmNoise(elapsedSeconds, reduced) {
     const fadeOut = 1 - smoothstep(0.42, 1, burstProgress);
 
     filmNoiseUniforms.uTime.value = elapsedSeconds;
-    filmNoiseUniforms.uBurst.value = clamp(fadeIn * fadeOut, 0, 1);
+    const burst = clamp(fadeIn * fadeOut, 0, 1);
+    filmNoiseUniforms.uBurst.value = burst;
     filmNoiseUniforms.uIntensity.value = 1;
+    if (burst <= 0.001 && previousBurst > 0.001) stopTvStaticNoise();
 }
 
 function resize() {
@@ -1022,6 +1257,7 @@ function handleBoxClick(event) {
     const box = getBoxAtPointer(event);
     if (box?.userData.route) {
         lobbyMusic.pause();
+        stopTvStaticNoise();
         requestExperiencePlayback(box.userData.route);
         window.location.assign(box.userData.route);
     }
@@ -1034,6 +1270,7 @@ function tick(now) {
     const reduced = motionPreference.matches;
 
     updateFilmNoise(elapsedSeconds, reduced);
+    keepFilmVideosPlaying();
 
     ribbons.forEach(ribbon => {
         if (!reduced) {
@@ -1077,11 +1314,16 @@ function tick(now) {
 
 function replaceRibbonAtlases(frames) {
     ribbons.forEach((ribbon, rowIndex) => {
+        const entries = createFilmFrameEntries(frames, rowIndex);
         const previousAtlas = ribbon.userData.atlas;
-        const nextAtlas = createFilmAtlas(frames, rowIndex);
+        const nextAtlas = createFilmAtlas(entries, rowIndex);
         nextAtlas.offset.copy(previousAtlas.offset);
         ribbon.userData.atlas = nextAtlas;
         ribbon.material.map = nextAtlas;
+        ribbon.userData.material.userData.filmFrameCount = entries.length;
+        if (ribbon.userData.material.userData.filmShader) {
+            ribbon.userData.material.userData.filmShader.uniforms.filmVideoFrameCount.value = entries.length;
+        }
         ribbon.material.needsUpdate = true;
         previousAtlas.dispose();
     });
@@ -1107,18 +1349,21 @@ async function refreshFilmPhotos() {
 
 async function initialize() {
     resize();
-    const [videoFrames, filmPhotoSet, boxTextureFrames] = await Promise.all([
+    const [videoFrames, filmPhotoSet, boxTextureFrames, loadedFilmVideoEntries] = await Promise.all([
         loadFirstFrames(),
         loadFilmPhotoSet(),
         Promise.all(VIDEO_SOURCES.map((source, index) => (
             source.boxTexture ? loadPhotoFrame(source.boxTexture, index) : Promise.resolve(null)
-        )))
+        ))),
+        loadFilmVideoEntries()
     ]);
+    filmVideoEntries = loadedFilmVideoEntries;
+    createFilmVideoTextures();
     filmPhotoSignature = filmPhotoSet.urls.join("|");
 
     createFloor();
     ROLL_SOURCE_INDEXES.forEach((sourceIndex, rollIndex) => {
-        createRibbon(filmPhotoSet.frames, rollIndex);
+        createRibbon(createFilmFrameEntries(filmPhotoSet.frames, rollIndex), rollIndex);
         createRoll(videoFrames[sourceIndex], VIDEO_SOURCES[sourceIndex], rollIndex);
     });
     BOX_SOURCE_INDEXES.forEach((sourceIndex, boxIndex) => {
@@ -1144,6 +1389,7 @@ document.addEventListener("visibilitychange", () => {
     lastFrameTime = performance.now();
     if (document.hidden) {
         lobbyMusic.pause();
+        stopTvStaticNoise();
     } else {
         void startLobbyMusic();
     }
@@ -1153,6 +1399,7 @@ window.addEventListener("pageshow", () => {
 });
 window.addEventListener("pagehide", () => {
     lobbyMusic.pause();
+    stopTvStaticNoise();
 });
 
 initialize().catch(error => {
