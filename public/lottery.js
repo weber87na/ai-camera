@@ -80,7 +80,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 1.65;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.setAttribute("aria-hidden", "true");
@@ -90,10 +90,21 @@ const filmNoiseScene = new THREE.Scene();
 const filmNoiseCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
 filmNoiseCamera.position.z = 1;
 
+const filmNoiseRenderTarget = new THREE.WebGLRenderTarget(1, 1, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat,
+    depthBuffer: true,
+    stencilBuffer: false
+});
+filmNoiseRenderTarget.texture.generateMipmaps = false;
+
 const filmNoiseUniforms = {
+    uScene: { value: filmNoiseRenderTarget.texture },
     uTime: { value: 0 },
     uSeed: { value: Math.random() * 1000 },
     uBurst: { value: 0 },
+    uIntensity: { value: 1 },
     uResolution: { value: new THREE.Vector2(1, 1) }
 };
 
@@ -110,11 +121,15 @@ const filmNoiseMaterial = new THREE.ShaderMaterial({
     fragmentShader: `
         precision mediump float;
 
+        uniform sampler2D uScene;
         uniform float uTime;
         uniform float uSeed;
         uniform float uBurst;
+        uniform float uIntensity;
         uniform vec2 uResolution;
         varying vec2 vUv;
+
+        const float PI = 3.14159265359;
 
         float hash12(vec2 value) {
             value = fract(value * vec2(123.34, 456.21));
@@ -122,67 +137,118 @@ const filmNoiseMaterial = new THREE.ShaderMaterial({
             return fract(value.x * value.y);
         }
 
+        vec2 safeUv(vec2 value) {
+            return clamp(value, vec2(0.001), vec2(0.999));
+        }
+
+        vec3 sampleScene(vec2 uv) {
+            return texture2D(uScene, safeUv(uv)).rgb;
+        }
+
+        vec3 rgbToYiq(vec3 color) {
+            return vec3(
+                dot(color, vec3(0.299, 0.587, 0.114)),
+                dot(color, vec3(0.595, -0.274, -0.321)),
+                dot(color, vec3(0.212, -0.523, 0.311))
+            );
+        }
+
+        vec3 yiqToRgb(vec3 color) {
+            return vec3(
+                color.x + 0.956 * color.y + 0.619 * color.z,
+                color.x - 0.272 * color.y - 0.647 * color.z,
+                color.x - 1.106 * color.y + 1.703 * color.z
+            );
+        }
+
         void main() {
-            vec2 uv = vUv;
+            vec2 texel = 1.0 / max(uResolution, vec2(1.0));
             float frame = floor(uTime * 24.0);
+            float line = floor(vUv.y * uResolution.y);
+            float linePhase = floor(uTime * 12.0);
+            float lineNoise = hash12(vec2(line + uSeed, linePhase));
+            float tearLine = smoothstep(0.72, 0.985, hash12(vec2(line * 0.77 + uSeed, linePhase + 19.0)));
+            float burst = uBurst * uIntensity;
 
-            float grain = hash12(floor(uv * uResolution * 0.55) + vec2(frame, uSeed));
-            grain = smoothstep(0.08, 0.92, grain);
+            // A small per-scanline timing error becomes a horizontal tape wobble.
+            float lineJitter = (lineNoise - 0.5)
+                * texel.x
+                * (0.8 + 5.2 * burst)
+                * (0.25 + tearLine * 0.75)
+                * uIntensity;
+            float rollingWave = sin(vUv.y * uResolution.y * 0.19 - uTime * 10.0 + uSeed)
+                * texel.x
+                * (0.35 + 1.8 * burst)
+                * uIntensity;
+            vec2 uv = vUv + vec2(lineJitter + rollingWave, 0.0);
 
-            float thinColumns = 150.0;
-            float thinColumnId = floor(uv.x * thinColumns + uSeed * 0.003);
-            float thinPosition = fract(uv.x * thinColumns + uSeed * 0.003);
-            float thinWidth = mix(0.025, 0.11, hash12(vec2(thinColumnId, uSeed + 13.0)));
-            float thinLine = 1.0 - smoothstep(0.0, thinWidth, abs(thinPosition - 0.5));
-            thinLine *= step(0.86, hash12(vec2(thinColumnId, uSeed + 3.0)));
-            thinLine *= mix(0.35, 1.0, hash12(vec2(thinColumnId, frame + uSeed)));
-            thinLine *= mix(
-                0.6,
-                1.0,
-                hash12(vec2(thinColumnId + floor(uv.y * 22.0), frame + uSeed * 0.7))
+            vec3 center = sampleScene(uv);
+            vec3 left = sampleScene(uv - vec2(texel.x * (1.6 + 2.5 * burst), 0.0));
+            vec3 right = sampleScene(uv + vec2(texel.x * (1.6 + 2.5 * burst), 0.0));
+
+            // Encode a short horizontal neighborhood as YIQ, then decode it again.
+            // This creates the soft luminance and colored edge bleed of NTSC video.
+            vec3 yiqCenter = rgbToYiq(center);
+            vec3 yiqLeft = rgbToYiq(left);
+            vec3 yiqRight = rgbToYiq(right);
+            vec3 decoded = yiqToRgb(vec3(
+                yiqCenter.x * 0.72 + (yiqLeft.x + yiqRight.x) * 0.14,
+                yiqCenter.y * 0.82 + (yiqLeft.y + yiqRight.y) * 0.09,
+                yiqCenter.z * 0.82 + (yiqLeft.z + yiqRight.z) * 0.09
+            ));
+            vec3 color = mix(center, decoded, (0.24 + 0.3 * burst) * uIntensity);
+
+            // The color subcarrier does not line up perfectly with the luminance.
+            // Separating the channels slightly makes bright edges fray into color.
+            float chromaShift = texel.x * (0.95 + 3.5 * burst) * uIntensity;
+            vec3 chromaSplit = vec3(
+                sampleScene(uv + vec2(chromaShift, 0.0)).r,
+                center.g,
+                sampleScene(uv - vec2(chromaShift, 0.0)).b
             );
+            color = mix(color, chromaSplit, (0.05 + 0.5 * burst) * uIntensity);
 
-            float broadColumns = 18.0;
-            float broadColumnId = floor(uv.x * broadColumns + uSeed * 0.0017);
-            float broadPosition = fract(uv.x * broadColumns + uSeed * 0.0017);
-            float broadWidth = mix(0.08, 0.26, hash12(vec2(broadColumnId, uSeed + 29.0)));
-            float broadLine = 1.0 - smoothstep(0.0, broadWidth, abs(broadPosition - 0.5));
-            broadLine *= step(0.76, hash12(vec2(broadColumnId, uSeed + 57.0)));
-            broadLine *= smoothstep(0.25, 0.9, hash12(vec2(broadColumnId, floor(uTime * 9.0) + uSeed)));
-
-            float scratch = clamp(thinLine + broadLine * 0.8, 0.0, 1.0);
-            float darkScratch = scratch * step(
-                0.91,
-                hash12(vec2(floor(uv.x * 120.0), uSeed + 88.0))
+            float grain = hash12(floor(uv * uResolution * 0.72) + vec2(frame, uSeed));
+            float fineGrain = hash12(floor(uv * uResolution * 1.35) + vec2(frame * 1.7, uSeed + 61.0));
+            float staticNoise = mix(grain, fineGrain, 0.34);
+            float horizontalStatic = smoothstep(
+                0.84,
+                0.995,
+                hash12(vec2(floor(vUv.y * uResolution.y / 6.0), frame + uSeed * 2.0))
             );
-
-            float colorSeed = hash12(vec2(floor(uv.x * 32.0), uSeed + 23.0));
-            vec3 warmScratch = vec3(1.0, 0.54, 0.2);
-            vec3 coolScratch = vec3(0.25, 0.65, 1.0);
-            vec3 scratchColor = mix(warmScratch, coolScratch, smoothstep(0.25, 0.8, colorSeed));
-            scratchColor = mix(scratchColor, vec3(1.0, 0.91, 0.76), grain * 0.28);
-            scratchColor = mix(scratchColor, vec3(0.03, 0.015, 0.01), darkScratch * 0.7);
-
-            float scanline = 0.5 + 0.5 * sin(uv.y * uResolution.y * 0.16 + uTime * 11.0);
-            float alpha = uBurst * (
-                scratch * 0.62
-                + broadLine * 0.14
-                + grain * 0.055
-                + scanline * grain * 0.018
+            vec3 staticTint = mix(
+                vec3(1.0, 0.82, 0.57),
+                vec3(0.49, 0.75, 1.0),
+                hash12(vec2(line * 0.23, uSeed + 73.0))
             );
+            color += (staticNoise - 0.5) * (0.07 + 0.22 * burst) * uIntensity;
+            color += (staticTint - 0.5) * horizontalStatic * (0.1 + 0.4 * burst) * uIntensity;
 
-            gl_FragColor = vec4(scratchColor, clamp(alpha, 0.0, 0.5));
+            float scanline = 0.5 + 0.5 * sin(vUv.y * uResolution.y * PI + uTime * 2.0);
+            float scanlineStrength = (0.04 + 0.09 * burst) * uIntensity;
+            color *= 1.0 - scanline * scanlineStrength;
+
+            // Keep the source frame dominant so the photos retain their original
+            // hue and exposure while the NTSC signal remains visible on top.
+            float effectBlend = uIntensity * (0.24 + 0.36 * burst);
+            color = mix(sampleScene(vUv), color, effectBlend);
+
+            // Keep the bright direct-render look of the original scene while
+            // lifting only the compressed midtones introduced by postprocessing.
+            color = pow(max(color, vec3(0.0)), vec3(0.9)) * 1.25;
+
+            // Keep the compositor opaque over the page's black stage, matching the
+            // existing visual while allowing the effect to affect the whole frame.
+            gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
         }
     `,
-    transparent: true,
     depthTest: false,
     depthWrite: false,
-    toneMapped: false
+    toneMapped: true
 });
 
 const filmNoiseMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), filmNoiseMaterial);
 filmNoiseScene.add(filmNoiseMesh);
-renderer.autoClear = false;
 
 scene.add(new THREE.HemisphereLight(0xffe9cd, 0x10151b, 1.38));
 
@@ -222,7 +288,7 @@ let lastFrameTime = performance.now();
 let filmPhotoSignature = "";
 let photoRefreshBusy = false;
 let cardboardSurfaceTexture = null;
-let filmNoiseNextBurstAt = performance.now() / 1000 + 3.5 + Math.random() * 4.5;
+let filmNoiseNextBurstAt = performance.now() / 1000 + 2.5 + Math.random() * 2.5;
 let filmNoiseBurstStartedAt = -Infinity;
 let filmNoiseBurstDuration = 0;
 
@@ -898,15 +964,16 @@ function updateFilmNoise(elapsedSeconds, reduced) {
     if (reduced) {
         filmNoiseUniforms.uTime.value = 0;
         filmNoiseUniforms.uBurst.value = 0;
+        filmNoiseUniforms.uIntensity.value = 0;
         filmNoiseBurstStartedAt = -Infinity;
         return;
     }
 
     if (elapsedSeconds >= filmNoiseNextBurstAt) {
         filmNoiseBurstStartedAt = elapsedSeconds;
-        filmNoiseBurstDuration = 0.2 + Math.random() * 0.42;
+        filmNoiseBurstDuration = 0.7 + Math.random() * 0.8;
         filmNoiseUniforms.uSeed.value = Math.random() * 1000;
-        filmNoiseNextBurstAt = elapsedSeconds + 5.5 + Math.random() * 9.5;
+        filmNoiseNextBurstAt = elapsedSeconds + 4.5 + Math.random() * 7.5;
     }
 
     const burstAge = elapsedSeconds - filmNoiseBurstStartedAt;
@@ -918,6 +985,7 @@ function updateFilmNoise(elapsedSeconds, reduced) {
 
     filmNoiseUniforms.uTime.value = elapsedSeconds;
     filmNoiseUniforms.uBurst.value = clamp(fadeIn * fadeOut, 0, 1);
+    filmNoiseUniforms.uIntensity.value = 1;
 }
 
 function resize() {
@@ -929,6 +997,7 @@ function resize() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 720 ? 1.4 : 1.75));
     renderer.setSize(width, height, false);
     filmNoiseUniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+    filmNoiseRenderTarget.setSize(renderer.domElement.width, renderer.domElement.height);
     layoutScene();
 }
 
@@ -989,11 +1058,19 @@ function tick(now) {
         if (dust) dust.rotation.z = Math.sin(elapsedSeconds * 0.035) * 0.02;
     }
 
-    renderer.clear();
-    renderer.render(scene, camera);
-    if (!reduced && filmNoiseUniforms.uBurst.value > 0.001) {
-        renderer.clearDepth();
+    const applyFilmNoise = !reduced && filmNoiseUniforms.uBurst.value > 0.001;
+    if (applyFilmNoise) {
+        renderer.setRenderTarget(filmNoiseRenderTarget);
+        renderer.clear();
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+        renderer.clear();
         renderer.render(filmNoiseScene, filmNoiseCamera);
+    } else {
+        // Preserve the original direct-render color pipeline between glitches.
+        renderer.setRenderTarget(null);
+        renderer.clear();
+        renderer.render(scene, camera);
     }
     window.requestAnimationFrame(tick);
 }
