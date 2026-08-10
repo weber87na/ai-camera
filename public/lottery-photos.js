@@ -34,16 +34,15 @@ export async function getTodayPhotoUrls() {
         : [];
 }
 
-/** Prefer today's photos and fall back only when today's directory is empty. */
-export async function getPhotoCandidates(fallbackUrls = []) {
+/** Return only today's photos for the actual lottery result. */
+export async function getPhotoCandidates() {
     try {
-        const todayPhotos = await getTodayPhotoUrls();
-        if (todayPhotos.length > 0) return todayPhotos;
+        return await getTodayPhotoUrls();
     } catch (error) {
-        console.warn("讀取今日抽獎照片失敗，改用內建圖片。", error);
+        console.warn("讀取今日抽獎照片失敗，無法抽獎。", error);
     }
 
-    return [...new Set(fallbackUrls.filter(isUsableImageUrl))];
+    return [];
 }
 
 export function pickRandomPhoto(urls) {

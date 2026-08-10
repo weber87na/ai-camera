@@ -13,6 +13,7 @@ const EXAMPLE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
     return `/example-images/${number}.jpg`;
 });
+const MIN_FILM_PHOTO_COUNT = EXAMPLE_IMAGES.length;
 
 const ROLL_SOURCE_INDEXES = [0, 1];
 const BOX_SOURCE_INDEXES = [0, 1, 2, 3, 4];
@@ -85,6 +86,104 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.setAttribute("aria-hidden", "true");
 stage.appendChild(renderer.domElement);
 
+const filmNoiseScene = new THREE.Scene();
+const filmNoiseCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+filmNoiseCamera.position.z = 1;
+
+const filmNoiseUniforms = {
+    uTime: { value: 0 },
+    uSeed: { value: Math.random() * 1000 },
+    uBurst: { value: 0 },
+    uResolution: { value: new THREE.Vector2(1, 1) }
+};
+
+const filmNoiseMaterial = new THREE.ShaderMaterial({
+    uniforms: filmNoiseUniforms,
+    vertexShader: `
+        varying vec2 vUv;
+
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+    `,
+    fragmentShader: `
+        precision mediump float;
+
+        uniform float uTime;
+        uniform float uSeed;
+        uniform float uBurst;
+        uniform vec2 uResolution;
+        varying vec2 vUv;
+
+        float hash12(vec2 value) {
+            value = fract(value * vec2(123.34, 456.21));
+            value += dot(value, value + 45.32);
+            return fract(value.x * value.y);
+        }
+
+        void main() {
+            vec2 uv = vUv;
+            float frame = floor(uTime * 24.0);
+
+            float grain = hash12(floor(uv * uResolution * 0.55) + vec2(frame, uSeed));
+            grain = smoothstep(0.08, 0.92, grain);
+
+            float thinColumns = 150.0;
+            float thinColumnId = floor(uv.x * thinColumns + uSeed * 0.003);
+            float thinPosition = fract(uv.x * thinColumns + uSeed * 0.003);
+            float thinWidth = mix(0.025, 0.11, hash12(vec2(thinColumnId, uSeed + 13.0)));
+            float thinLine = 1.0 - smoothstep(0.0, thinWidth, abs(thinPosition - 0.5));
+            thinLine *= step(0.86, hash12(vec2(thinColumnId, uSeed + 3.0)));
+            thinLine *= mix(0.35, 1.0, hash12(vec2(thinColumnId, frame + uSeed)));
+            thinLine *= mix(
+                0.6,
+                1.0,
+                hash12(vec2(thinColumnId + floor(uv.y * 22.0), frame + uSeed * 0.7))
+            );
+
+            float broadColumns = 18.0;
+            float broadColumnId = floor(uv.x * broadColumns + uSeed * 0.0017);
+            float broadPosition = fract(uv.x * broadColumns + uSeed * 0.0017);
+            float broadWidth = mix(0.08, 0.26, hash12(vec2(broadColumnId, uSeed + 29.0)));
+            float broadLine = 1.0 - smoothstep(0.0, broadWidth, abs(broadPosition - 0.5));
+            broadLine *= step(0.76, hash12(vec2(broadColumnId, uSeed + 57.0)));
+            broadLine *= smoothstep(0.25, 0.9, hash12(vec2(broadColumnId, floor(uTime * 9.0) + uSeed)));
+
+            float scratch = clamp(thinLine + broadLine * 0.8, 0.0, 1.0);
+            float darkScratch = scratch * step(
+                0.91,
+                hash12(vec2(floor(uv.x * 120.0), uSeed + 88.0))
+            );
+
+            float colorSeed = hash12(vec2(floor(uv.x * 32.0), uSeed + 23.0));
+            vec3 warmScratch = vec3(1.0, 0.54, 0.2);
+            vec3 coolScratch = vec3(0.25, 0.65, 1.0);
+            vec3 scratchColor = mix(warmScratch, coolScratch, smoothstep(0.25, 0.8, colorSeed));
+            scratchColor = mix(scratchColor, vec3(1.0, 0.91, 0.76), grain * 0.28);
+            scratchColor = mix(scratchColor, vec3(0.03, 0.015, 0.01), darkScratch * 0.7);
+
+            float scanline = 0.5 + 0.5 * sin(uv.y * uResolution.y * 0.16 + uTime * 11.0);
+            float alpha = uBurst * (
+                scratch * 0.62
+                + broadLine * 0.14
+                + grain * 0.055
+                + scanline * grain * 0.018
+            );
+
+            gl_FragColor = vec4(scratchColor, clamp(alpha, 0.0, 0.5));
+        }
+    `,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false
+});
+
+const filmNoiseMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), filmNoiseMaterial);
+filmNoiseScene.add(filmNoiseMesh);
+renderer.autoClear = false;
+
 scene.add(new THREE.HemisphereLight(0xffe9cd, 0x10151b, 1.38));
 
 const keyLight = new THREE.DirectionalLight(0xffd2a4, 3.25);
@@ -123,6 +222,9 @@ let lastFrameTime = performance.now();
 let filmPhotoSignature = "";
 let photoRefreshBusy = false;
 let cardboardSurfaceTexture = null;
+let filmNoiseNextBurstAt = performance.now() / 1000 + 3.5 + Math.random() * 4.5;
+let filmNoiseBurstStartedAt = -Infinity;
+let filmNoiseBurstDuration = 0;
 
 function clamp(value, minimum, maximum) {
     return Math.min(Math.max(value, minimum), maximum);
@@ -181,16 +283,22 @@ function getTodayString() {
 }
 
 async function fetchFilmPhotoUrls() {
+    let todayPhotos = [];
     try {
         const response = await fetch(`/api/photos/${getTodayString()}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`photo API ${response.status}`);
         const data = await response.json();
-        const todayPhotos = Array.isArray(data.images) ? [...new Set(data.images)] : [];
-        if (todayPhotos.length) return todayPhotos;
+        todayPhotos = Array.isArray(data.images)
+            ? [...new Set(data.images.filter(url => typeof url === "string" && url.length > 0))]
+            : [];
     } catch (error) {
-        console.warn("無法讀取今日拍照圖片，暫時使用範例圖片。", error);
+        console.warn("無法讀取今日拍照圖片，膠捲將使用範例圖片補足。", error);
     }
-    return EXAMPLE_IMAGES;
+
+    const missingCount = Math.max(0, MIN_FILM_PHOTO_COUNT - todayPhotos.length);
+    // Keep today's images at the end so the texture-size limit retains them
+    // even on devices whose maximum texture is smaller than the full atlas.
+    return EXAMPLE_IMAGES.slice(0, missingCount).concat(todayPhotos);
 }
 
 function createPhotoFallback(index) {
@@ -650,7 +758,7 @@ function createFilmBox(frame, source, boxIndex) {
         jitterX: [0, -0.005, 0.004, -0.004, 0][boxIndex],
         jitterY: [0.05, 0.1, 0.02, 0.08, 0.04][boxIndex],
         rotationX: -0.13 + (Math.random() - 0.5) * 0.05,
-        rotationY: [0.4, -0.34, 0.27, -0.42, 0.36][boxIndex] + (Math.random() - 0.5) * 0.15,
+        rotationY: [0.58, -0.34, 0.27, -0.42, 0.36][boxIndex] + (Math.random() - 0.5) * 0.15,
         rotationZ: (Math.random() - 0.5) * 0.13,
         spinSpeed: [0.011, -0.009, 0.01, -0.012, 0.008][boxIndex] * (0.9 + Math.random() * 0.2),
         floatPhase: Math.random() * Math.PI * 2
@@ -786,6 +894,32 @@ function updateRibbon(ribbon, elapsedSeconds) {
     positions.needsUpdate = true;
 }
 
+function updateFilmNoise(elapsedSeconds, reduced) {
+    if (reduced) {
+        filmNoiseUniforms.uTime.value = 0;
+        filmNoiseUniforms.uBurst.value = 0;
+        filmNoiseBurstStartedAt = -Infinity;
+        return;
+    }
+
+    if (elapsedSeconds >= filmNoiseNextBurstAt) {
+        filmNoiseBurstStartedAt = elapsedSeconds;
+        filmNoiseBurstDuration = 0.2 + Math.random() * 0.42;
+        filmNoiseUniforms.uSeed.value = Math.random() * 1000;
+        filmNoiseNextBurstAt = elapsedSeconds + 5.5 + Math.random() * 9.5;
+    }
+
+    const burstAge = elapsedSeconds - filmNoiseBurstStartedAt;
+    const burstProgress = filmNoiseBurstDuration > 0
+        ? burstAge / filmNoiseBurstDuration
+        : 2;
+    const fadeIn = smoothstep(0, 0.18, burstProgress);
+    const fadeOut = 1 - smoothstep(0.42, 1, burstProgress);
+
+    filmNoiseUniforms.uTime.value = elapsedSeconds;
+    filmNoiseUniforms.uBurst.value = clamp(fadeIn * fadeOut, 0, 1);
+}
+
 function resize() {
     const width = Math.max(stage.clientWidth, 1);
     const height = Math.max(stage.clientHeight, 1);
@@ -794,6 +928,7 @@ function resize() {
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 720 ? 1.4 : 1.75));
     renderer.setSize(width, height, false);
+    filmNoiseUniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
     layoutScene();
 }
 
@@ -829,6 +964,8 @@ function tick(now) {
     lastFrameTime = now;
     const reduced = motionPreference.matches;
 
+    updateFilmNoise(elapsedSeconds, reduced);
+
     ribbons.forEach(ribbon => {
         if (!reduced) {
             const frameCount = Math.max(ribbon.userData.atlas.userData.frameCount || 1, 1);
@@ -852,7 +989,12 @@ function tick(now) {
         if (dust) dust.rotation.z = Math.sin(elapsedSeconds * 0.035) * 0.02;
     }
 
+    renderer.clear();
     renderer.render(scene, camera);
+    if (!reduced && filmNoiseUniforms.uBurst.value > 0.001) {
+        renderer.clearDepth();
+        renderer.render(filmNoiseScene, filmNoiseCamera);
+    }
     window.requestAnimationFrame(tick);
 }
 

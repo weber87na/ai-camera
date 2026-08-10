@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { createExperiencePlayback } from "/experience-playback.js?v=2";
-import { getPhotoCandidates, isUsableImageUrl, pickRandomPhoto } from "/lottery-photos.js?v=1";
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
 
 const stage = document.querySelector("#painterStage");
 const video = document.querySelector("#sourceVideo");
@@ -9,7 +9,6 @@ soundtrack.volume = 0.9;
 const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
 const loadingMessage = document.querySelector("#loadingMessage");
 
-const FALLBACK_WINNER = "/images/style-04.webp";
 const ABSORB_START = 3.75;
 const ABSORB_FADE_OUT_START = 6.9;
 const ABSORB_FADE_OUT_END = 7.12;
@@ -260,26 +259,10 @@ const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin("anonymous");
 
 let state = "loading";
-let winnerUrl = FALLBACK_WINNER;
+let winnerUrl = "";
 let videoDuration = 8;
 let winnerReady = false;
 let printStartedAt = null;
-
-function readImageOverride() {
-    const params = new URLSearchParams(window.location.search);
-    const queryValue = params.get("winner") || params.get("image") || params.get("winnerImage");
-    if (isUsableImageUrl(queryValue)) return queryValue;
-
-    for (const key of ["painterWinnerImage", "aiCameraWinnerImage", "winnerImage", "resultImage"]) {
-        try {
-            const storedValue = window.localStorage.getItem(key);
-            if (isUsableImageUrl(storedValue)) return storedValue;
-        } catch {
-            // Private browsing can deny localStorage; the API fallback still works.
-        }
-    }
-    return "";
-}
 
 async function getRandomPhotoUrl() {
     const candidates = await getPhotoCandidates();
@@ -448,33 +431,32 @@ function setSpiralPalette(palette) {
 }
 
 async function loadWinnerImage() {
-    // Prefer a random image from today's storage directory. Older query or
-    // localStorage overrides remain available only when today's directory is empty.
     const randomPhoto = await getRandomPhotoUrl();
-    const override = randomPhoto ? "" : readImageOverride();
-    const candidates = [...new Set([randomPhoto, override, FALLBACK_WINNER].filter(Boolean))];
+    if (!randomPhoto) {
+        showLoadingMessage("今天尚未有可抽獎的照片");
+        return false;
+    }
 
-    for (const candidate of candidates) {
-        try {
-            const texture = await loadImageTexture(candidate);
-            winnerUrl = candidate;
-            uniforms.uWinner.value = texture;
-            uniforms.uWinnerResolution.value.set(
-                texture.image?.naturalWidth || texture.image?.width || 1,
-                texture.image?.naturalHeight || texture.image?.height || 1
-            );
-            const palette = analyzeImagePalette(texture.image);
-            if (palette) setSpiralPalette(palette);
-            winnerReady = true;
-            if (printStartedAt === null && (state === "finished" || video.currentTime >= PRINT_START)) {
-                // A late result starts its longer spiral reveal on the held
-                // final frame; an early result can join the planned window.
-                printStartedAt = performance.now() / 1000;
-            }
-            return;
-        } catch {
-            // Try the next source. The bundled style image guarantees a final fallback.
+    try {
+        const texture = await loadImageTexture(randomPhoto);
+        winnerUrl = randomPhoto;
+        uniforms.uWinner.value = texture;
+        uniforms.uWinnerResolution.value.set(
+            texture.image?.naturalWidth || texture.image?.width || 1,
+            texture.image?.naturalHeight || texture.image?.height || 1
+        );
+        const palette = analyzeImagePalette(texture.image);
+        if (palette) setSpiralPalette(palette);
+        winnerReady = true;
+        if (printStartedAt === null && (state === "finished" || video.currentTime >= PRINT_START)) {
+            // A late result starts its longer spiral reveal on the held
+            // final frame; an early result can join the planned window.
+            printStartedAt = performance.now() / 1000;
         }
+        return true;
+    } catch {
+        showLoadingMessage("今日照片載入失敗，請重新整理頁面");
+        return false;
     }
 }
 
@@ -585,7 +567,7 @@ video.addEventListener("error", () => {
 });
 
 stage.addEventListener("click", () => {
-    if (state === "blocked") void playFromBeginning();
+    if (state === "blocked" && winnerReady) void playFromBeginning();
 });
 
 stage.addEventListener("dblclick", () => {
@@ -617,10 +599,11 @@ async function init() {
     });
 
     renderer.setAnimationLoop(render);
-    // Start the clip immediately. The lottery result is allowed to arrive in
-    // parallel; if it is late, finish() holds the final video frame for it.
+    if (!await loadWinnerImage()) {
+        state = "blocked";
+        return;
+    }
     void playFromBeginning();
-    void loadWinnerImage();
 }
 
 init();

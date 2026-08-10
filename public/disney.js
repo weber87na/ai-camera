@@ -3,12 +3,7 @@ import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
-
-const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
-    const number = String(index + 1).padStart(2, "0");
-    return `/images/style-${number}.webp`;
-});
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
 
 const FINAL_GLOW_LEAD = 0.5;
 const PARTICLE_TRANSITION_DURATION = 1.7;
@@ -145,7 +140,7 @@ function waitForUserStart() {
 }
 
 async function getCandidateImages() {
-    return getPhotoCandidates(REFERENCE_IMAGES);
+    return getPhotoCandidates();
 }
 
 function setupVideoPlane() {
@@ -749,6 +744,7 @@ function createWinnerDecal(image) {
 async function pickRandomWinner() {
     const candidates = await getCandidateImages();
     const winnerUrl = pickRandomPhoto(candidates);
+    if (!winnerUrl) throw new Error("今天尚未有可抽獎的照片");
     winnerImage = await loadImage(winnerUrl);
     createWinnerDecal(winnerImage);
 }
@@ -902,7 +898,7 @@ async function init() {
     } catch (error) {
         console.error("Disney magic experience failed to initialise:", error);
         stage.classList.add("has-error");
-        stage.dataset.error = "芭樂模型載入失敗";
+        stage.dataset.error = error?.message || "芭樂模型載入失敗";
     }
 }
 

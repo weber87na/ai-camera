@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -1389,14 +1389,8 @@ function beginLottery(now) {
 
 function revealWinner(now) {
     // Safety check for winnerEntry & image
-    const entry = winnerEntry || window.globalWinnerEntry || { url: '/images/style-04.webp' };
-    if (!entry.image) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512; canvas.height = 724;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffdd44'; ctx.fillRect(0, 0, 512, 724);
-        entry.image = canvas;
-    }
+    const entry = winnerEntry || window.globalWinnerEntry;
+    if (!entry?.image) return;
     const texture = createPhotoTexture(entry.image);
 
     // Keep exactly ~25 cards (index % 20 === 0) visible scattered across screen
@@ -1787,8 +1781,13 @@ const godRayUniforms = {
 };
 
 async function init() {
-    const winnerCandidates = await getPhotoCandidates(REFERENCE_IMAGES);
+    const winnerCandidates = await getPhotoCandidates();
     const winnerUrl = pickRandomPhoto(winnerCandidates);
+    if (!winnerUrl) {
+        stage.classList.add("has-lottery-error");
+        stage.dataset.error = "今天尚未有可抽獎的照片";
+        return;
+    }
     const winnerImg = await loadImage(winnerUrl);
     window.globalWinnerEntry = { url: winnerUrl, image: winnerImg };
 

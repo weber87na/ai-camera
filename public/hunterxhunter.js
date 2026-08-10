@@ -1,13 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=1";
-
-// 人物畫廊候選圖庫
-const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
-    const number = String(index + 1).padStart(2, "0");
-    return `/images/style-${number}.webp`;
-});
+import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
 
 const stage = document.querySelector("#magicStage");
 const video = document.getElementById("sourceVideo");
@@ -482,13 +476,22 @@ function createWinnerCard(img) {
 
 // 隨機選擇獲勝人物
 async function pickRandomWinner() {
-    const candidates = await getPhotoCandidates(REFERENCE_IMAGES);
+    const candidates = await getPhotoCandidates();
     const randomUrl = pickRandomPhoto(candidates);
+    if (!randomUrl) {
+        stage.classList.add("has-lottery-error");
+        stage.dataset.error = "今天尚未有可抽獎的照片";
+        return false;
+    }
     try {
         winnerImage = await loadImage(randomUrl);
         createWinnerCard(winnerImage);
+        return true;
     } catch (e) {
         console.error("Failed to load winner image:", e);
+        stage.classList.add("has-lottery-error");
+        stage.dataset.error = "今日照片載入失敗，請重新整理頁面";
+        return false;
     }
 }
 
@@ -517,7 +520,10 @@ async function startMagicExperience() {
         videoPlane.visible = true;
     }
 
-    await pickRandomWinner();
+    if (!await pickRandomWinner()) {
+        state = "blocked";
+        return;
+    }
     if (currentSequenceId !== sequenceId) return;
 
     startTime = performance.now() / 1000;

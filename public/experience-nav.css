@@ -68,6 +68,27 @@
     outline-offset: 3px;
 }
 
+#magicStage.has-lottery-error::before {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 20;
+    max-width: min(90vw, 420px);
+    padding: 14px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    background: rgba(5, 6, 8, 0.82);
+    box-shadow: 0 12px 38px rgba(0, 0, 0, 0.42);
+    color: #fff;
+    content: attr(data-error);
+    font: 600 15px/1.5 "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    text-align: center;
+    transform: translate(-50%, -50%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    pointer-events: none;
+}
+
 @media (max-width: 520px) {
     .experience-back {
         min-width: 44px;
