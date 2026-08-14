@@ -46,6 +46,15 @@ function normalizeParticipantName(value) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
+function participantNameFilenamePart(value) {
+  return normalizeParticipantName(value)
+    .normalize("NFC")
+    .replace(/[<>:"/\\|?*\u0000-\u001F\u007F]/g, "_")
+    .replace(/\s+/g, "-")
+    .replace(/\.+$/g, "")
+    .slice(0, 60) || "unnamed";
+}
+
 function readStoredNamesByFile() {
   const names = new Map();
 
@@ -72,7 +81,7 @@ function readStoredNamesByFile() {
 }
 
 /**
- * 將完成的 job 存到 storage/YYYY-MM-DD/<timestamp>-<jobId8>.jpg
+ * 將完成的 job 存到 storage/YYYY-MM-DD/<timestamp>-<jobId8>-<name>.jpg
  * 並 append 一行 metadata 到 results.jsonl
  */
 function persistResult(job) {
@@ -83,7 +92,8 @@ function persistResult(job) {
     fs.mkdirSync(dateDir, { recursive: true });
 
     // 寫入 JPEG 檔案
-    const filename = `${job.createdAt}-${job.id.slice(0, 8)}.jpg`;
+    const namePart = participantNameFilenamePart(job.name);
+    const filename = `${job.createdAt}-${job.id.slice(0, 8)}-${namePart}.jpg`;
     const filepath = path.join(dateDir, filename);
     const base64   = job.image.replace(/^data:image\/\w+;base64,/, "");
     fs.writeFileSync(filepath, Buffer.from(base64, "base64"));
@@ -267,8 +277,8 @@ app.get("/api/jobs/:id", (req, res) => {
 
 /**
  * GET /api/photos/:date
- * 直接掃描 storage/YYYY-MM-DD/ 資料夾，回傳所有圖片的公開 URL
- * 不依賴 results.jsonl，方便測試
+ * 直接掃描 storage/YYYY-MM-DD/ 資料夾，回傳所有圖片的公開 URL；
+ * results.jsonl 僅用來補上姓名 metadata，不影響圖片候選的掃描。
  */
 app.get("/api/photos/:date", (req, res) => {
   const date = req.params.date;
@@ -288,7 +298,7 @@ app.get("/api/photos/:date", (req, res) => {
   }
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const images = files.map(f => `${baseUrl}/storage/${date}/${f}`);
+  const images = files.map(f => `${baseUrl}/storage/${date}/${encodeURIComponent(f)}`);
   const namesByFile = readStoredNamesByFile();
   const photos = files.map((file, index) => ({
     url: images[index],
