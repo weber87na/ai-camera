@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { createExperiencePlayback } from "/experience-playback.js?v=2";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
+import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#painterStage");
+const winnerName = createWinnerNameLabel(stage);
 const video = document.querySelector("#sourceVideo");
 const soundtrack = document.querySelector("#soundtrack");
 soundtrack.volume = 0.9;
@@ -264,9 +265,9 @@ let videoDuration = 8;
 let winnerReady = false;
 let printStartedAt = null;
 
-async function getRandomPhotoUrl() {
-    const candidates = await getPhotoCandidates();
-    return pickRandomPhoto(candidates);
+async function getRandomPhotoEntry() {
+    const candidates = await getPhotoCandidateEntries();
+    return pickRandomPhotoEntry(candidates);
 }
 
 function loadImageTexture(url) {
@@ -431,15 +432,16 @@ function setSpiralPalette(palette) {
 }
 
 async function loadWinnerImage() {
-    const randomPhoto = await getRandomPhotoUrl();
+    const randomPhoto = await getRandomPhotoEntry();
     if (!randomPhoto) {
         showLoadingMessage("今天尚未有可抽獎的照片");
         return false;
     }
 
     try {
-        const texture = await loadImageTexture(randomPhoto);
-        winnerUrl = randomPhoto;
+        winnerName.set(randomPhoto.name);
+        const texture = await loadImageTexture(randomPhoto.url);
+        winnerUrl = randomPhoto.url;
         uniforms.uWinner.value = texture;
         uniforms.uWinnerResolution.value.set(
             texture.image?.naturalWidth || texture.image?.width || 1,
@@ -504,6 +506,8 @@ function updateTimeline() {
     uniforms.uTime.value = time;
     uniforms.uAbsorb.value = absorb;
     uniforms.uPrint.value = print;
+    if (print >= 0.72) winnerName.show();
+    else winnerName.hide();
 }
 
 function resize() {
@@ -516,6 +520,7 @@ function resize() {
 
 async function playFromBeginning() {
     state = "playing";
+    winnerName.hide();
     video.pause();
     soundtrack.pause();
     video.currentTime = 0;

@@ -17,7 +17,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;600;700;900&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet"
-    href="style.css?v=24" />
+    href="style.css?v=25" />
 </head>
 
 <body>
@@ -40,8 +40,26 @@
         </div>
       </div>
       <div class="home-controls">
-        <button class="primary-button"
-          id="startButton">開始拍照</button>
+        <form class="photo-start-form"
+          id="photoStartForm">
+          <label class="participant-field"
+            for="participantName">
+            <span>請輸入姓名 <b>必填</b></span>
+            <input id="participantName"
+              name="name"
+              type="text"
+              inputmode="text"
+              autocomplete="name"
+              enterkeyhint="go"
+              autocapitalize="words"
+              maxlength="30"
+              placeholder="你的姓名"
+              required />
+          </label>
+          <button class="primary-button"
+            id="startButton"
+            type="submit">開始拍照</button>
+        </form>
         <a class="gallery-button"
           href="gallery.html">來去瞧瞧</a>
         <a class="lottery-link"
@@ -139,7 +157,7 @@
   </main>
   <div class="toast"
     id="toast"></div>
-  <script src="app.js?v=19"
+  <script src="app.js?v=20"
     type="module"></script>
 </body>
 

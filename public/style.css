@@ -307,12 +307,66 @@ button {
 
 .home-controls {
   display: flex;
-  flex: 0 0 76px;
+  flex: 0 0 auto;
   flex-direction: column;
   justify-content: center;
   width: 100%;
-  padding: 10px 5px 2px;
+  padding: 6px 5px 2px;
   text-align: center;
+}
+
+.photo-start-form {
+  display: grid;
+  gap: 9px;
+}
+
+.participant-field {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+}
+
+.participant-field > span {
+  padding-left: 2px;
+  color: var(--text-main);
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.participant-field b {
+  margin-left: 4px;
+  color: #8c4338;
+  font-size: 10px;
+}
+
+.participant-field input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #c9beaf;
+  border-radius: 7px;
+  outline: none;
+  background: rgba(255, 252, 245, 0.92);
+  color: var(--text-main);
+  padding: 0 14px;
+  font: 500 16px/1.2 "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  box-shadow: inset 0 1px 2px rgba(65, 57, 48, 0.06);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.participant-field input::placeholder {
+  color: #9b9288;
+}
+
+.participant-field input:focus {
+  border-color: var(--primary);
+  background: #fffdf8;
+  box-shadow: 0 0 0 3px rgba(102, 114, 99, 0.16);
+}
+
+.participant-field input:user-invalid {
+  border-color: #a95144;
 }
 
 .home-controls .primary-button {
@@ -827,9 +881,12 @@ button {
   }
 
   .home-controls {
-    flex-basis: 70px;
-    padding: 9px 3px 1px;
+    padding: 4px 3px 1px;
   }
+
+  .participant-field input { min-height: 44px; }
+
+  .photo-start-form { gap: 7px; }
 }
 
 /* ─── Desktop framing ────────────────────────────────────── */

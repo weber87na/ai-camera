@@ -3,14 +3,15 @@ import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
+import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const FINAL_GLOW_LEAD = 0.5;
 const PARTICLE_TRANSITION_DURATION = 1.7;
 const PARTICLE_COUNT = window.innerWidth < 700 ? 1800 : 3200;
 const APPLE_DEPTH = 1;
-
 const stage = document.querySelector("#magicStage");
+const winnerName = createWinnerNameLabel(stage);
+
 const video = document.querySelector("#sourceVideo");
 const entryPlayback = createExperiencePlayback(video, { volume: 0.9 });
 
@@ -140,7 +141,7 @@ function waitForUserStart() {
 }
 
 async function getCandidateImages() {
-    return getPhotoCandidates();
+    return getPhotoCandidateEntries();
 }
 
 function setupVideoPlane() {
@@ -743,9 +744,10 @@ function createWinnerDecal(image) {
 
 async function pickRandomWinner() {
     const candidates = await getCandidateImages();
-    const winnerUrl = pickRandomPhoto(candidates);
-    if (!winnerUrl) throw new Error("今天尚未有可抽獎的照片");
-    winnerImage = await loadImage(winnerUrl);
+    const winner = pickRandomPhotoEntry(candidates);
+    if (!winner) throw new Error("今天尚未有可抽獎的照片");
+    winnerName.set(winner.name);
+    winnerImage = await loadImage(winner.url);
     createWinnerDecal(winnerImage);
 }
 
@@ -771,6 +773,7 @@ async function startMagicExperience() {
     state = "loading";
     transitionStartedAt = null;
     stage.classList.remove("is-winner");
+    winnerName.hide();
 
     appleRoot.visible = false;
     appleRoot.position.set(0, 0, 0);
@@ -841,6 +844,7 @@ function updateTimeline(now) {
         state = "winner";
         controls.enabled = true;
         stage.classList.add("is-winner");
+        winnerName.show();
     }
 }
 

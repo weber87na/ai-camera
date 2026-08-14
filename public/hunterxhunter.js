@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
+import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#magicStage");
+const winnerName = createWinnerNameLabel(stage);
 const video = document.getElementById("sourceVideo");
 const soundtrack = document.getElementById("soundtrack");
 soundtrack.volume = 0.9;
@@ -476,15 +477,16 @@ function createWinnerCard(img) {
 
 // 隨機選擇獲勝人物
 async function pickRandomWinner() {
-    const candidates = await getPhotoCandidates();
-    const randomUrl = pickRandomPhoto(candidates);
-    if (!randomUrl) {
+    const candidates = await getPhotoCandidateEntries();
+    const randomPhoto = pickRandomPhotoEntry(candidates);
+    if (!randomPhoto) {
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
         return false;
     }
     try {
-        winnerImage = await loadImage(randomUrl);
+        winnerName.set(randomPhoto.name);
+        winnerImage = await loadImage(randomPhoto.url);
         createWinnerCard(winnerImage);
         return true;
     } catch (e) {
@@ -502,6 +504,7 @@ async function startMagicExperience() {
     sequenceReady = false;
     videoFinishedTime = null;
     winnerRevealTime = null;
+    winnerName.hide();
     video.pause();
     video.currentTime = 0;
 
@@ -598,6 +601,7 @@ function animate() {
         if (retreatProgress >= WINNER_REVEAL_POINT && winnerMesh && !winnerMesh.visible) {
             winnerMesh.visible = true;
             winnerRevealTime = now;
+            winnerName.show();
         }
 
     } else {
@@ -608,6 +612,7 @@ function animate() {
         if (winnerMesh && !winnerMesh.visible) {
             winnerMesh.visible = true;
             winnerRevealTime = now;
+            winnerName.show();
         }
 
     }

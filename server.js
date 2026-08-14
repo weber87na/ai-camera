@@ -11,6 +11,7 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const maxConcurrent = Number(process.env.MAX_CONCURRENT) || 3;
 const maxQueue = Number(process.env.MAX_QUEUE) || 30;
+const maxParticipantNameLength = 30;
 const exchangeRate = Number(process.env.USD_TO_TWD) || 32.5;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing-key" });
 const upload = multer({
@@ -41,6 +42,35 @@ function taipeiDateString(timestamp = Date.now()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function normalizeParticipantName(value) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function readStoredNamesByFile() {
+  const names = new Map();
+
+  try {
+    const lines = fs.readFileSync(RESULTS_LOG, "utf8").split(/\r?\n/);
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      try {
+        const record = JSON.parse(line);
+        const name = normalizeParticipantName(record?.name);
+        if (typeof record?.file === "string" && name) {
+          names.set(record.file.replaceAll("\\", "/"), name);
+        }
+      } catch {
+        // 略過損壞的單行紀錄，避免整份抽獎名單無法讀取。
+      }
+    }
+  } catch {
+    // results.jsonl 尚未建立時，照片 API 仍可正常回傳圖片。
+  }
+
+  return names;
+}
+
 /**
  * 將完成的 job 存到 storage/YYYY-MM-DD/<timestamp>-<jobId8>.jpg
  * 並 append 一行 metadata 到 results.jsonl
@@ -61,6 +91,7 @@ function persistResult(job) {
     // Append metadata
     const record = {
       id:        job.id,
+      name:      job.name,
       style:     job.style,
       deviceId:  job.deviceId,
       createdAt: job.createdAt,
@@ -205,17 +236,21 @@ function processQueue() {
 
 app.post("/api/generate", upload.single("photo"), (req, res) => {
   const { style, deviceId, requestId } = req.body || {};
+  const name = normalizeParticipantName(req.body?.name);
   const prompt = getStylePrompt(style);
   if (!req.file)                               return res.status(400).json({ error: "沒有收到照片" });
   if (!req.file.mimetype.startsWith("image/")) return res.status(400).json({ error: "只接受圖片檔案" });
   if (!prompt)                                 return res.status(400).json({ error: "不支援這個風格" });
+  if (!name)                                   return res.status(400).json({ error: "請輸入姓名後再拍照" });
+  if ([...name].length > maxParticipantNameLength)
+    return res.status(400).json({ error: `姓名不可超過 ${maxParticipantNameLength} 個字` });
   if (!deviceId || !requestId)                 return res.status(400).json({ error: "缺少裝置或請求編號" });
   const existingId = requestIds.get(requestId);
   if (existingId) return res.status(202).json(publicJob(jobs.get(existingId)));
   if (queue.length >= maxQueue) return res.status(503).json({ error: "目前等候人數已滿，請稍後再試" });
 
   const id  = crypto.randomUUID();
-  const job = { id, requestId, deviceId, style, status: "queued", photo: req.file.buffer, mimeType: req.file.mimetype, createdAt: Date.now() };
+  const job = { id, requestId, deviceId, name, style, status: "queued", photo: req.file.buffer, mimeType: req.file.mimetype, createdAt: Date.now() };
   jobs.set(id, job);
   requestIds.set(requestId, id);
   queue.push(id);
@@ -254,8 +289,13 @@ app.get("/api/photos/:date", (req, res) => {
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const images = files.map(f => `${baseUrl}/storage/${date}/${f}`);
+  const namesByFile = readStoredNamesByFile();
+  const photos = files.map((file, index) => ({
+    url: images[index],
+    name: namesByFile.get(`${date}/${file}`) || ""
+  }));
 
-  res.json({ date, total: images.length, images });
+  res.json({ date, total: images.length, images, photos });
 });
 
 app.get("/api/health", (_req, res) => {

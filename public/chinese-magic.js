@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=1";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
+import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -16,6 +16,7 @@ const MIN_DESKTOP_CARDS = 500;
 const FALLBACK_CARD_COUNT = window.innerWidth < 700 ? 200 : 500;
 const LAYOUTS = ["moon", "cube", "ai", "nkust", "rabbit", "plane"];
 const stage = document.querySelector("#magicStage");
+const winnerName = createWinnerNameLabel(stage);
 
 const drawButton = {
     disabled: false,
@@ -1344,6 +1345,7 @@ function updateExplosion(delta) {
 function beginLottery(now) {
     if (state !== "idle" || cards.length === 0) return;
     winnerEntry = window.globalWinnerEntry;
+    winnerName.hide();
 
     if (videoPhase === 'playing') {
         videoPhase = 'morphing';
@@ -1540,6 +1542,7 @@ function updateLottery(now, delta) {
         winnerMesh.position.set(0, THREE.MathUtils.lerp(-1.0, 0.0, easeOutCubic(progress)), 3.2);
         if (progress >= 1) {
             state = "winner";
+            winnerName.show();
             drawButton.disabled = false;
             drawButton.querySelector("span").textContent = "再抽一次";
             drawButton.setAttribute("aria-label", "再抽一次");
@@ -1781,15 +1784,16 @@ const godRayUniforms = {
 };
 
 async function init() {
-    const winnerCandidates = await getPhotoCandidates();
-    const winnerUrl = pickRandomPhoto(winnerCandidates);
-    if (!winnerUrl) {
+    const winnerCandidates = await getPhotoCandidateEntries();
+    const winner = pickRandomPhotoEntry(winnerCandidates);
+    if (!winner) {
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
         return;
     }
-    const winnerImg = await loadImage(winnerUrl);
-    window.globalWinnerEntry = { url: winnerUrl, image: winnerImg };
+    winnerName.set(winner.name);
+    const winnerImg = await loadImage(winner.url);
+    window.globalWinnerEntry = { ...winner, image: winnerImg };
 
     const talismanUrls = [
         '/images/符咒.png',

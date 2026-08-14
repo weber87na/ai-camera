@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { createExperiencePlayback } from "/experience-playback.js?v=2";
-import { getPhotoCandidates, pickRandomPhoto } from "/lottery-photos.js?v=2";
+import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#magicStage");
+const winnerName = createWinnerNameLabel(stage);
 const video = document.getElementById("sourceVideo");
 const soundtrack = document.getElementById("soundtrack");
 soundtrack.volume = 0.9;
@@ -323,15 +324,16 @@ function createWinnerCard(img) {
 
 // 隨機選擇獲勝人物
 async function pickRandomWinner() {
-    const candidates = await getPhotoCandidates();
-    const randomUrl = pickRandomPhoto(candidates);
-    if (!randomUrl) {
+    const candidates = await getPhotoCandidateEntries();
+    const randomPhoto = pickRandomPhotoEntry(candidates);
+    if (!randomPhoto) {
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
         return false;
     }
     try {
-        winnerImage = await loadImage(randomUrl);
+        winnerName.set(randomPhoto.name);
+        winnerImage = await loadImage(randomPhoto.url);
         createWinnerCard(winnerImage);
         return true;
     } catch (e) {
@@ -376,6 +378,7 @@ async function playMediaFromBeginning() {
 async function startMagicExperience() {
     state = "loading";
     startTime = Number.POSITIVE_INFINITY;
+    winnerName.hide();
 
     setSmokeState(0, 0, 0);
 
@@ -437,6 +440,7 @@ function animate() {
             if (winnerMesh) {
                 winnerMesh.visible = true;
                 state = "winner";
+                winnerName.show();
             }
 
             // 5.2s ~ 7.2s: 煙霧散去 (fade out)，露出抽中人物
