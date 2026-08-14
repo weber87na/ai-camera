@@ -24,6 +24,23 @@ const RESULTS_LOG  = path.join(STORAGE_ROOT, "results.jsonl");
 
 fs.mkdirSync(STORAGE_ROOT, { recursive: true });
 
+function taipeiDateString(timestamp = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date(timestamp));
+
+  const values = Object.fromEntries(
+    parts
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 /**
  * 將完成的 job 存到 storage/YYYY-MM-DD/<timestamp>-<jobId8>.jpg
  * 並 append 一行 metadata 到 results.jsonl
@@ -31,7 +48,7 @@ fs.mkdirSync(STORAGE_ROOT, { recursive: true });
 function persistResult(job) {
   try {
     // 建立日期子目錄
-    const dateStr  = new Date(job.createdAt).toISOString().slice(0, 10); // YYYY-MM-DD
+    const dateStr  = taipeiDateString(job.createdAt); // YYYY-MM-DD (Asia/Taipei)
     const dateDir  = path.join(STORAGE_ROOT, dateStr);
     fs.mkdirSync(dateDir, { recursive: true });
 
