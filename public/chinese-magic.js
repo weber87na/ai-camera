@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
-import { createExperiencePlayback } from "/experience-playback.js?v=1";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=3";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
@@ -203,6 +203,7 @@ let morphing = false;
 let pendingRefresh = false;
 let lastInteractionAt = -Infinity;
 let winnerEntry = null;
+let lotteryReady = false;
 let winnerMesh = null;
 let lotteryPhaseStartedAt = 0;
 let explosionAge = Infinity;
@@ -1679,7 +1680,9 @@ const video = document.getElementById('sourceVideo');
 const soundtrack = document.getElementById('soundtrack');
 soundtrack.volume = 0.9;
 const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
-let videoPhase = 'playing';
+// The opening video is also useful as a standalone preview when today's
+// lottery has no completed photo yet. Only a ready lottery may enter morphing.
+let videoPhase = 'preview';
 let videoPlane;
 let laserEnergySphere;
 let planePositions = [];
@@ -1789,26 +1792,30 @@ async function init() {
     if (!winner) {
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
-        return;
+    } else {
+        winnerName.set(winner.name);
+        const winnerImg = await loadImage(winner.url);
+        window.globalWinnerEntry = { ...winner, image: winnerImg };
+        lotteryReady = true;
+        videoPhase = "playing";
     }
-    winnerName.set(winner.name);
-    const winnerImg = await loadImage(winner.url);
-    window.globalWinnerEntry = { ...winner, image: winnerImg };
 
-    const talismanUrls = [
-        '/images/符咒.png',
-        '/images/符咒2.png',
-        '/images/符咒3.png',
-        '/images/符咒4.png',
-        '/images/符咒5.png'
-    ];
-    const talismanImgs = await Promise.all(talismanUrls.map(url => loadImage(url)));
-    for (let i = 0; i < MAX_PHOTOS; i++) {
-        const imgIndex = i % talismanImgs.length;
-        imageLibrary.push({ url: talismanUrls[imgIndex] + '?' + i, image: talismanImgs[imgIndex] });
+    if (lotteryReady) {
+        const talismanUrls = [
+            '/images/符咒.png',
+            '/images/符咒2.png',
+            '/images/符咒3.png',
+            '/images/符咒4.png',
+            '/images/符咒5.png'
+        ];
+        const talismanImgs = await Promise.all(talismanUrls.map(url => loadImage(url)));
+        for (let i = 0; i < MAX_PHOTOS; i++) {
+            const imgIndex = i % talismanImgs.length;
+            imageLibrary.push({ url: talismanUrls[imgIndex] + '?' + i, image: talismanImgs[imgIndex] });
+        }
+        rebuildGallery();
+        gallery.visible = false;
     }
-    rebuildGallery();
-    gallery.visible = false;
     
     // Create video material
     const videoTexture = new THREE.VideoTexture(video);
@@ -1918,7 +1925,13 @@ async function init() {
             spherePositions.push(new THREE.Vector3(sx, sy, sz));
         }
         
-        entryPlayback.play().catch(e => console.log('Video play error:', e));
+        if (lotteryReady) {
+            entryPlayback.play().catch(e => console.log('Video play error:', e));
+        } else {
+            // Decode one frame so the clickable preview is visible even when
+            // the browser has not autoplayed the hidden source video.
+            void primeVideoFrame(video);
+        }
     };
 
     if (video.readyState >= 1) {
@@ -1934,7 +1947,7 @@ async function init() {
         const now = performance.now() / 1000;
         
         // Video Logic
-        if (videoPhase === 'playing') {
+        if (lotteryReady && videoPhase === 'playing') {
             // Check if video is near end (3.0s remaining)
             if (video.duration > 0 && video.currentTime >= video.duration - 3.0) {
                 videoPhase = 'morphing';
@@ -1998,6 +2011,20 @@ async function init() {
         renderer.render(scene, camera);
     });
 }
+stage.addEventListener("click", () => {
+    if (lotteryReady) {
+        if (videoPhase === "playing" && video.paused) {
+            void entryPlayback.play({ sound: true }).catch(() => {});
+        }
+        return;
+    }
+    if (videoPhase !== "preview") return;
+    video.currentTime = 0;
+    soundtrack.pause();
+    soundtrack.currentTime = 0;
+    void entryPlayback.play({ sound: true }).catch(() => {});
+});
+
 drawButton.addEventListener("click", () => {
     const now = performance.now() / 1000;
     if (state === "winner") {

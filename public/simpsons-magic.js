@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
-import { createExperiencePlayback } from "/experience-playback.js?v=2";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=4";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#magicStage");
@@ -256,6 +256,7 @@ let state = "loading"; // loading -> playing -> smoking -> winner / blocked
 let startTime = Number.POSITIVE_INFINITY;
 let timelineNeedsSync = false;
 let winnerImage = null;
+let previewOnly = false;
 
 // 設置影片 Plane
 function setupVideoPlane() {
@@ -327,6 +328,7 @@ async function pickRandomWinner() {
     const candidates = await getPhotoCandidateEntries();
     const randomPhoto = pickRandomPhotoEntry(candidates);
     if (!randomPhoto) {
+        previewOnly = true;
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
         return false;
@@ -359,18 +361,31 @@ function syncTimelineToPlayback() {
     setSmokeState(0, 0, 0);
 }
 
-async function playMediaFromBeginning() {
+async function playMediaFromBeginning({ sound = false } = {}) {
     resetMedia();
     timelineNeedsSync = true;
 
     try {
-        await entryPlayback.play();
+        await entryPlayback.play({ sound });
     } catch (error) {
         resetMedia();
         timelineNeedsSync = true;
         state = "blocked";
         startTime = Number.POSITIVE_INFINITY;
         console.log("Video and soundtrack play error:", error);
+    }
+}
+
+async function playPreviewFromBeginning() {
+    resetMedia();
+    state = "blocked";
+    startTime = Number.POSITIVE_INFINITY;
+    timelineNeedsSync = false;
+
+    try {
+        await entryPlayback.play({ sound: true });
+    } catch {
+        // The preview remains on its first frame when the browser blocks play.
     }
 }
 
@@ -393,6 +408,7 @@ async function startMagicExperience() {
 
     if (!await pickRandomWinner()) {
         state = "blocked";
+        await primeVideoFrame(video);
         return;
     }
     await playMediaFromBeginning();
@@ -506,7 +522,9 @@ function onWindowResize() {
 window.addEventListener("resize", onWindowResize);
 video.addEventListener("playing", syncTimelineToPlayback);
 stage.addEventListener("click", () => {
-    if (state === "blocked") void playMediaFromBeginning();
+    if (state !== "blocked") return;
+    if (previewOnly) void playPreviewFromBeginning();
+    else void playMediaFromBeginning({ sound: true });
 });
 window.addEventListener("pagehide", () => {
     resetMedia();

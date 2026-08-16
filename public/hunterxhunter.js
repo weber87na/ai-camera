@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
-import { createExperiencePlayback } from "/experience-playback.js?v=1";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=3";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#magicStage");
@@ -408,6 +408,7 @@ let videoFinishedTime = null;
 let winnerRevealTime = null;
 let sequenceId = 0;
 let sequenceReady = false;
+let previewOnly = false;
 let winnerImage = null;
 
 // 設置影片 Plane
@@ -480,6 +481,7 @@ async function pickRandomWinner() {
     const candidates = await getPhotoCandidateEntries();
     const randomPhoto = pickRandomPhotoEntry(candidates);
     if (!randomPhoto) {
+        previewOnly = true;
         stage.classList.add("has-lottery-error");
         stage.dataset.error = "今天尚未有可抽獎的照片";
         return false;
@@ -488,6 +490,7 @@ async function pickRandomWinner() {
         winnerName.set(randomPhoto.name);
         winnerImage = await loadImage(randomPhoto.url);
         createWinnerCard(winnerImage);
+        previewOnly = false;
         return true;
     } catch (e) {
         console.error("Failed to load winner image:", e);
@@ -497,8 +500,25 @@ async function pickRandomWinner() {
     }
 }
 
+async function playPreviewFromBeginning() {
+    if (!previewOnly) return;
+    sequenceReady = false;
+    state = "blocked";
+    videoFinishedTime = null;
+    winnerRevealTime = null;
+    video.pause();
+    soundtrack.pause();
+    video.currentTime = 0;
+    soundtrack.currentTime = 0;
+    try {
+        await entryPlayback.play({ sound: true });
+    } catch {
+        // Keep the first frame visible when the browser blocks playback.
+    }
+}
+
 // 啟動抽卡流程
-async function startMagicExperience() {
+async function startMagicExperience({ sound = false } = {}) {
     const currentSequenceId = ++sequenceId;
     state = "playing";
     sequenceReady = false;
@@ -525,13 +545,14 @@ async function startMagicExperience() {
 
     if (!await pickRandomWinner()) {
         state = "blocked";
+        await primeVideoFrame(video);
         return;
     }
     if (currentSequenceId !== sequenceId) return;
 
     startTime = performance.now() / 1000;
     sequenceReady = true;
-    entryPlayback.play().catch(err => console.log("Video play error:", err));
+    entryPlayback.play({ sound }).catch(err => console.log("Video play error:", err));
 }
 
 // ----------------------------------------------------
@@ -679,6 +700,11 @@ function onWindowResize() {
 }
 
 window.addEventListener("resize", onWindowResize);
+stage.addEventListener("click", () => {
+    if (state !== "blocked") return;
+    if (previewOnly) void playPreviewFromBeginning();
+    else void startMagicExperience({ sound: true });
+});
 
 // 初始化入口
 async function init() {

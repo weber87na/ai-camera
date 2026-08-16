@@ -30,13 +30,53 @@ function consumePlaybackRequest() {
     }
 }
 
+/**
+ * Decode one muted video frame so a Three.js VideoTexture has a visible
+ * initial image before the user starts the experience.
+ */
+export async function primeVideoFrame(video) {
+    if (!video) return false;
+
+    const originalMuted = video.muted;
+    const originalDefaultMuted = video.defaultMuted;
+    const originalVolume = video.volume;
+
+    video.pause();
+    video.currentTime = 0;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+
+    try {
+        await video.play();
+        await new Promise((resolve) => {
+            if (typeof video.requestVideoFrameCallback === "function") {
+                video.requestVideoFrameCallback(() => resolve());
+                return;
+            }
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+        video.pause();
+        video.currentTime = 0;
+        return true;
+    } catch {
+        video.pause();
+        video.currentTime = 0;
+        return false;
+    } finally {
+        video.muted = originalMuted;
+        video.defaultMuted = originalDefaultMuted;
+        video.volume = originalVolume;
+    }
+}
+
 export function createExperiencePlayback(video, { volume = 0.95, companions = [] } = {}) {
     const requested = consumePlaybackRequest();
     const media = [video, ...companions].filter(Boolean);
     let fallbackButton = null;
 
-    const applySound = () => {
-        if (!requested) return;
+    const applySound = (force = false) => {
+        if (!requested && !force) return;
         media.forEach(element => {
             element.defaultMuted = false;
             element.muted = false;
@@ -58,7 +98,7 @@ export function createExperiencePlayback(video, { volume = 0.95, companions = []
         fallbackButton.addEventListener("click", async event => {
             event.stopPropagation();
             try {
-                await play();
+                await play({ sound: true });
             } catch {
                 // Keep the button visible so another trusted gesture can retry.
             }
@@ -66,11 +106,11 @@ export function createExperiencePlayback(video, { volume = 0.95, companions = []
         document.body.appendChild(fallbackButton);
     };
 
-    const play = async () => {
-        applySound();
+    const play = async ({ sound = false } = {}) => {
+        applySound(sound);
         try {
             await Promise.all(media.map(element => element.play()));
-            applySound();
+            applySound(sound);
             hideFallback();
         } catch (error) {
             showFallback();

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createExperiencePlayback } from "/experience-playback.js?v=2";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=4";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const stage = document.querySelector("#painterStage");
@@ -263,6 +263,7 @@ let state = "loading";
 let winnerUrl = "";
 let videoDuration = 8;
 let winnerReady = false;
+let previewOnly = false;
 let printStartedAt = null;
 
 async function getRandomPhotoEntry() {
@@ -518,7 +519,7 @@ function resize() {
     renderer.getDrawingBufferSize(uniforms.uResolution.value);
 }
 
-async function playFromBeginning() {
+async function playFromBeginning({ sound = false } = {}) {
     state = "playing";
     winnerName.hide();
     video.pause();
@@ -533,7 +534,7 @@ async function playFromBeginning() {
     hideLoadingMessage();
 
     try {
-        await entryPlayback.play();
+        await entryPlayback.play({ sound });
     } catch {
         video.pause();
         soundtrack.pause();
@@ -544,6 +545,24 @@ async function playFromBeginning() {
     }
 }
 
+async function playPreviewFromBeginning() {
+    previewOnly = true;
+    state = "preview";
+    video.pause();
+    soundtrack.pause();
+    video.currentTime = 0;
+    soundtrack.currentTime = 0;
+    printStartedAt = null;
+    uniforms.uAbsorb.value = 0;
+    uniforms.uPrint.value = 0;
+
+    try {
+        await entryPlayback.play({ sound: true });
+    } catch {
+        state = "blocked";
+    }
+}
+
 function finish() {
     state = "finished";
     video.pause();
@@ -551,7 +570,8 @@ function finish() {
     if (winnerReady && printStartedAt === null) {
         printStartedAt = performance.now() / 1000;
     }
-    hideLoadingMessage();
+    if (previewOnly) showLoadingMessage("今天尚未有可抽獎的照片");
+    else hideLoadingMessage();
 }
 
 function render() {
@@ -562,8 +582,8 @@ function render() {
 video.addEventListener("loadedmetadata", setVideoResolution);
 video.addEventListener("loadeddata", setVideoResolution, { once: true });
 video.addEventListener("playing", () => {
-    state = "playing";
-    hideLoadingMessage();
+    state = previewOnly ? "preview" : "playing";
+    if (!previewOnly) hideLoadingMessage();
 });
 video.addEventListener("ended", finish);
 video.addEventListener("error", () => {
@@ -572,11 +592,15 @@ video.addEventListener("error", () => {
 });
 
 stage.addEventListener("click", () => {
-    if (state === "blocked" && winnerReady) void playFromBeginning();
+    if (previewOnly && ["blocked", "preview", "finished"].includes(state)) {
+        void playPreviewFromBeginning();
+        return;
+    }
+    if (state === "blocked") void playFromBeginning({ sound: true });
 });
 
 stage.addEventListener("dblclick", () => {
-    if (state === "finished") void playFromBeginning();
+    if (state === "finished") void playFromBeginning({ sound: true });
 });
 
 window.addEventListener("resize", resize, { passive: true });
@@ -605,7 +629,9 @@ async function init() {
 
     renderer.setAnimationLoop(render);
     if (!await loadWinnerImage()) {
-        state = "blocked";
+        previewOnly = true;
+        state = "preview";
+        await primeVideoFrame(video);
         return;
     }
     void playFromBeginning();

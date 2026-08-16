@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
-import { createExperiencePlayback } from "/experience-playback.js?v=1";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=3";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 
 const FINAL_GLOW_LEAD = 0.5;
@@ -69,7 +69,8 @@ let appleGlow = null;
 let glowUniforms = null;
 let decalMesh = null;
 let winnerImage = null;
-let state = "loading"; // loading -> waiting -> playing -> transitioning -> winner
+let state = "loading"; // loading -> preview/waiting -> playing -> transitioning -> winner
+let previewOnly = false;
 let transitionStartedAt = null;
 
 const raycaster = new THREE.Raycaster();
@@ -119,7 +120,7 @@ function waitForUserStart() {
             // the user has already clicked.
             video.muted = false;
             video.volume = 0.9;
-            entryPlayback.play().then(() => {
+            entryPlayback.play({ sound: true }).then(() => {
                 resolved = true;
                 resolve();
             }).catch((error) => {
@@ -745,10 +746,15 @@ function createWinnerDecal(image) {
 async function pickRandomWinner() {
     const candidates = await getCandidateImages();
     const winner = pickRandomPhotoEntry(candidates);
-    if (!winner) throw new Error("今天尚未有可抽獎的照片");
+    if (!winner) {
+        stage.classList.add("has-lottery-error");
+        stage.dataset.error = "今天尚未有可抽獎的照片";
+        return false;
+    }
     winnerName.set(winner.name);
     winnerImage = await loadImage(winner.url);
     createWinnerDecal(winnerImage);
+    return true;
 }
 
 function beginParticleTransition(now) {
@@ -791,12 +797,29 @@ async function startMagicExperience() {
     video.muted = true;
     video.volume = 0;
 
-    await pickRandomWinner();
+    if (!await pickRandomWinner()) {
+        previewOnly = true;
+        state = "preview";
+        video.currentTime = 0;
+        await primeVideoFrame(video);
+        return;
+    }
     setPortraitProjectionOpacity(0);
 
     video.currentTime = 0;
     await waitForUserStart();
     state = "playing";
+}
+
+async function playPreviewFromBeginning() {
+    if (!previewOnly) return;
+    video.pause();
+    video.currentTime = 0;
+    try {
+        await entryPlayback.play({ sound: true });
+    } catch {
+        // Keep the first frame visible when the browser blocks playback.
+    }
 }
 
 function updateTimeline(now) {
@@ -887,6 +910,10 @@ function onWindowResize() {
 }
 
 window.addEventListener("resize", onWindowResize);
+stage.addEventListener("click", () => {
+    if (!previewOnly) return;
+    void playPreviewFromBeginning();
+});
 
 async function init() {
     try {
