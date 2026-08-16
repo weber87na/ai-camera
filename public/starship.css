@@ -1,0 +1,29 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#starshipStage {
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #010308;
+}
+
+#starshipStage {
+    position: fixed;
+    inset: 0;
+    cursor: default;
+    touch-action: none;
+}
+
+#starshipCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+}

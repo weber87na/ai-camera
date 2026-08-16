@@ -67,7 +67,16 @@ function readStoredNamesByFile() {
         const record = JSON.parse(line);
         const name = normalizeParticipantName(record?.name);
         if (typeof record?.file === "string" && name) {
-          names.set(record.file.replaceAll("\\", "/"), name);
+          const normalizedFile = record.file.replaceAll("\\", "/");
+          const filename = path.posix.basename(normalizedFile);
+          names.set(normalizedFile, name);
+
+          // A photo can be copied or moved to another date directory while
+          // keeping its original filename. The filename and job id remain
+          // stable, so keep those indexes as fallbacks for name lookup.
+          names.set(`filename:${filename}`, name);
+          const jobIdPrefix = filename.match(/^\d+-([0-9a-f]{8})-/i)?.[1];
+          if (jobIdPrefix) names.set(`job:${jobIdPrefix.toLowerCase()}`, name);
         }
       } catch {
         // 略過損壞的單行紀錄，避免整份抽獎名單無法讀取。
@@ -78,6 +87,29 @@ function readStoredNamesByFile() {
   }
 
   return names;
+}
+
+function participantNameFromFilename(filename) {
+  const match = String(filename || "").match(
+    /^\d+-[0-9a-f]{8}-(.+)\.(?:jpe?g|png|webp|gif)$/i
+  );
+  if (!match) return "";
+
+  const namePart = match[1].trim();
+  if (!namePart || namePart.toLowerCase() === "unnamed") return "";
+  return normalizeParticipantName(namePart.replace(/-/g, " "));
+}
+
+function findStoredPhotoName(date, filename, namesByFile) {
+  const exactPathName = namesByFile.get(`${date}/${filename}`);
+  if (exactPathName) return exactPathName;
+
+  const filenameName = namesByFile.get(`filename:${filename}`);
+  if (filenameName) return filenameName;
+
+  const jobIdPrefix = filename.match(/^\d+-([0-9a-f]{8})-/i)?.[1];
+  const jobName = jobIdPrefix && namesByFile.get(`job:${jobIdPrefix.toLowerCase()}`);
+  return jobName || participantNameFromFilename(filename);
 }
 
 /**
@@ -126,7 +158,7 @@ const queue     = [];
 let activeJobs  = 0;
 
 app.disable("x-powered-by");
-app.use(express.static("public", { maxAge: 0, etag: true }));
+app.use(express.static("public", { maxAge: 0, etag: true, extensions: ["html"] }));
 
 // Three.js browser build for WebGL experiences such as painter.
 app.use("/vendor/three", express.static(path.join(process.cwd(), "node_modules", "three", "build"), { maxAge: "7d" }));
@@ -164,6 +196,10 @@ app.get(["/gallery", "/gallery/"], (_req, res) => {
 
 app.get(["/lottery", "/lottery/"], (_req, res) => {
   res.sendFile(path.resolve("public", "lottery.html"));
+});
+
+app.get(["/starship", "/starship/"], (_req, res) => {
+  res.sendFile(path.resolve("public", "starship.html"));
 });
 
 function queuePosition(jobId) {
@@ -302,7 +338,7 @@ app.get("/api/photos/:date", (req, res) => {
   const namesByFile = readStoredNamesByFile();
   const photos = files.map((file, index) => ({
     url: images[index],
-    name: namesByFile.get(`${date}/${file}`) || ""
+    name: findStoredPhotoName(date, file, namesByFile)
   }));
 
   res.json({ date, total: images.length, images, photos });
