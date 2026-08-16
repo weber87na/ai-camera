@@ -420,6 +420,7 @@ button {
   margin: 10px -16px 0;
   overflow: hidden;
   background: #26231f;
+  touch-action: none;
 }
 
 .camera-stage video {
@@ -430,6 +431,8 @@ button {
   height: 100%;
   object-fit: cover;
   object-position: center;
+  transform-origin: center;
+  will-change: transform;
 }
 
 .camera-placeholder {
@@ -479,12 +482,22 @@ button {
   justify-content: center;
   width: 44px;
   height: 44px;
+  padding: 0;
   border-radius: 50%;
   background: rgba(255,255,255,0.1);
   color: #fff;
-  font-size: 22px;
-  line-height: 1;
   flex-shrink: 0;
+}
+
+.camera-switch-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .camera-switch.invisible { opacity: 0; pointer-events: none; }

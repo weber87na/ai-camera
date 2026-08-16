@@ -17,7 +17,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;600;700;900&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet"
-    href="style.css?v=25" />
+    href="style.css?v=27" />
 </head>
 
 <body>
@@ -89,9 +89,20 @@
       </div>
       <div class="camera-controls"><button class="camera-switch"
           id="switchCamera"
-          aria-label="切換鏡頭">↻</button><button class="shutter"
+          type="button"
+          aria-label="切換鏡頭"><svg class="camera-switch-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></button><button class="shutter"
           id="shutterButton"
-          aria-label="拍照"><span></span></button><button class="camera-switch invisible">↻</button></div>
+          type="button"
+          aria-label="拍照"><span></span></button><button class="camera-switch invisible"
+          type="button"
+          aria-hidden="true"
+          tabindex="-1"><svg class="camera-switch-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></button></div>
       <button class="camera-permission"
         id="permissionButton">開啟相機</button>
     </section>
@@ -148,14 +159,15 @@
         </div>
       </div>
       <div class="result-actions"><button class="primary-button"
-            id="shareButton">分享圖片</button><button class="text-button"
-          id="againButton">再拍一張　↗</button>
+            id="shareButton">分享圖片</button><button class="gallery-button"
+          id="againButton"
+          type="button">再拍一張　↗</button>
       </div>
     </section>
   </main>
   <div class="toast"
     id="toast"></div>
-  <script src="app.js?v=20"
+  <script src="app.js?v=21"
     type="module"></script>
 </body>
 
