@@ -8,20 +8,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/hunterxhunter.css?v=7">
+    <link rel="stylesheet" href="/hunterxhunter.css?v=8">
     <link rel="stylesheet" href="/experience-nav.css?v=1">
     <link rel="stylesheet" href="/winner-name.css?v=1">
+    <link rel="stylesheet" href="/display-mode.css?v=1">
     <script type="importmap">
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
 </head>
 <body>
-    <a class="experience-back" href="/starship" aria-label="回到大廳">返回大廳</a>
+    <div class="display-output-frame">
+        <div class="display-experience">
+            <a class="experience-back" href="/starship" data-preserve-display aria-label="回到大廳">返回大廳</a>
 
-    <video id="sourceVideo" src="/videos/鎖鏈殺手.mp4" crossorigin="anonymous" preload="auto" playsinline muted style="display: none;"></video>
-    <audio id="soundtrack" src="/sounds/鎖鏈殺手.mp3?v=1" preload="auto" aria-hidden="true"></audio>
-    <main id="magicStage" aria-label="酷拉皮卡鎖鏈抽卡舞台"></main>
+            <video id="sourceVideo" src="/videos/鎖鏈殺手.mp4" crossorigin="anonymous" preload="auto" playsinline muted style="display: none;"></video>
+            <audio id="soundtrack" src="/sounds/鎖鏈殺手.mp3?v=1" preload="auto" aria-hidden="true"></audio>
+            <main id="magicStage" aria-label="酷拉皮卡鎖鏈抽卡舞台"></main>
+        </div>
+    </div>
 
-    <script type="module" src="/hunterxhunter.js?v=10"></script>
+    <script type="module" src="/hunterxhunter.js?v=11"></script>
 </body>
 </html>

@@ -8,33 +8,38 @@
     <link rel="stylesheet" href="/painter.css?v=13">
     <link rel="stylesheet" href="/experience-nav.css?v=1">
     <link rel="stylesheet" href="/winner-name.css?v=1">
+    <link rel="stylesheet" href="/display-mode.css?v=1">
     <script type="importmap">
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
 </head>
 <body>
-    <a class="experience-back" href="/starship" aria-label="回到大廳">返回大廳</a>
-    <main id="painterStage" aria-label="顏料吸收與中獎圖片展示舞台">
-        <video
-            id="sourceVideo"
-            src="/videos/顏料吸收.mp4"
-            preload="auto"
-            playsinline
-            muted
-            disablepictureinpicture
-            aria-hidden="true"
-        ></video>
-        <audio
-            id="soundtrack"
-            src="/sounds/顏料吸收.mp3?v=2"
-            preload="auto"
-            playsinline
-            aria-hidden="true"
-        ></audio>
+    <div class="display-output-frame">
+        <div class="display-experience">
+            <a class="experience-back" href="/starship" data-preserve-display aria-label="回到大廳">返回大廳</a>
+            <main id="painterStage" aria-label="顏料吸收與中獎圖片展示舞台">
+                <video
+                    id="sourceVideo"
+                    src="/videos/顏料吸收.mp4"
+                    preload="auto"
+                    playsinline
+                    muted
+                    disablepictureinpicture
+                    aria-hidden="true"
+                ></video>
+                <audio
+                    id="soundtrack"
+                    src="/sounds/顏料吸收.mp3?v=2"
+                    preload="auto"
+                    playsinline
+                    aria-hidden="true"
+                ></audio>
 
-        <div id="loadingMessage" class="stage-message" role="status">正在準備顏料舞台…</div>
-    </main>
+                <div id="loadingMessage" class="stage-message" role="status">正在準備顏料舞台…</div>
+            </main>
+        </div>
+    </div>
 
-    <script type="module" src="/painter.js?v=20"></script>
+    <script type="module" src="/painter.js?v=21"></script>
 </body>
 </html>

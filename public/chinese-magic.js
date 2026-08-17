@@ -1,7 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
-import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=3";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=5";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
+import {
+    isCenturyDisplay,
+    isCompactDisplay,
+    preserveDisplayModeLinks,
+    updateDisplayFrame
+} from "/display-mode.js?v=1";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");
@@ -13,9 +19,11 @@ const SHAPE_INTERVAL = 6_200;
 const MORPH_DURATION = 1.85;
 const MAX_PHOTOS = 500;
 const MIN_DESKTOP_CARDS = 500;
-const FALLBACK_CARD_COUNT = window.innerWidth < 700 ? 200 : 500;
+const FALLBACK_CARD_COUNT = isCompactDisplay() ? 200 : 500;
 const LAYOUTS = ["moon", "cube", "ai", "nkust", "rabbit", "plane"];
 const stage = document.querySelector("#magicStage");
+const initialDisplay = updateDisplayFrame();
+preserveDisplayModeLinks();
 const winnerName = createWinnerNameLabel(stage);
 
 const drawButton = {
@@ -30,7 +38,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.FogExp2(0x000000, 0.017);
 
-const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 120);
+const camera = new THREE.PerspectiveCamera(43, initialDisplay.aspect, 0.1, 120);
 camera.position.set(0, 0.3, 13.8);
 
 const renderer = new THREE.WebGLRenderer({
@@ -38,7 +46,7 @@ const renderer = new THREE.WebGLRenderer({
     alpha: false,
     powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth >= 700 ? 1.5 : 1.35));
+renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, isCompactDisplay() ? 1.35 : 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
@@ -656,8 +664,9 @@ function planeTarget(index, count) {
     const rows = mosaicLayout?.count === count ? mosaicLayout.rows : Math.ceil(count / columns);
     const column = index % columns;
     const row = Math.floor(index / columns);
-    const availableWidth = window.innerWidth < 700 ? 8.2 : 13.2;
-    const availableHeight = window.innerWidth < 700 ? 9.4 : 7.8;
+    const compact = isCompactDisplay();
+    const availableWidth = compact ? 8.2 : 13.2;
+    const availableHeight = compact ? 9.4 : 7.8;
     const scale = Math.min(0.94, availableWidth / (columns * 0.69), availableHeight / (rows * 0.88));
     const spacingX = 0.69 * scale * 1.015;
     const spacingY = 0.88 * scale * 1.015;
@@ -752,7 +761,7 @@ function currentGalleryEntries() {
     const sourceEntries = liveEntries.length > 0 ? liveEntries : referenceEntries;
     if (sourceEntries.length === 0) return [];
 
-    const minimumCount = window.innerWidth >= 700 ? MIN_DESKTOP_CARDS : FALLBACK_CARD_COUNT;
+    const minimumCount = isCompactDisplay() ? FALLBACK_CARD_COUNT : MIN_DESKTOP_CARDS;
     const entries = [...sourceEntries];
     while (entries.length < minimumCount) {
         const sourceIndex = Math.floor(
@@ -923,7 +932,7 @@ function createGlowTexture() {
 
 const glowTexture = createGlowTexture();
 
-const transitionParticleCount = window.innerWidth >= 700 ? 720 : 240;
+const transitionParticleCount = isCompactDisplay() ? 240 : 720;
 const transitionParticlePositions = new Float32Array(transitionParticleCount * 3);
 const transitionParticleVelocities = new Float32Array(transitionParticleCount * 3);
 const transitionParticleColors = new Float32Array(transitionParticleCount * 3);
@@ -1189,7 +1198,7 @@ lunarHaloGroup.add(lunarRim);
 const lunarHaloLight = new THREE.PointLight(0xb8d1ff, 0, 24, 1.7);
 lunarHaloGroup.add(lunarHaloLight);
 
-const sparkCount = window.innerWidth < 700 ? 260 : 520;
+const sparkCount = isCompactDisplay() ? 260 : 520;
 const sparkPositions = new Float32Array(sparkCount * 3);
 const sparkVelocities = new Float32Array(sparkCount * 3);
 const sparkColors = new Float32Array(sparkCount * 3);
@@ -1666,8 +1675,8 @@ async function refreshPhotos() {
 }
 
 function resize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const { width, height } = updateDisplayFrame();
+    renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, width >= 700 ? 1.5 : 1.35));
     renderer.setSize(width, height, false);
     renderer.getDrawingBufferSize(backdropUniforms.uResolution.value);
     camera.aspect = width / height;
@@ -1679,7 +1688,7 @@ function resize() {
 const video = document.getElementById('sourceVideo');
 const soundtrack = document.getElementById('soundtrack');
 soundtrack.volume = 0.9;
-const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack], container: stage });
 // The opening video is also useful as a standalone preview when today's
 // lottery has no completed photo yet. Only a ready lottery may enter morphing.
 let videoPhase = 'preview';

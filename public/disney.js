@@ -2,23 +2,32 @@ import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { DecalGeometry } from "/vendor/three-addons/geometries/DecalGeometry.js";
-import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=3";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=5";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
+import {
+    getDisplaySize,
+    isCenturyDisplay,
+    isCompactDisplay,
+    preserveDisplayModeLinks,
+    updateDisplayFrame
+} from "/display-mode.js?v=1";
 
 const FINAL_GLOW_LEAD = 0.5;
 const PARTICLE_TRANSITION_DURATION = 1.7;
-const PARTICLE_COUNT = window.innerWidth < 700 ? 1800 : 3200;
+const PARTICLE_COUNT = isCompactDisplay() ? 1800 : 3200;
 const APPLE_DEPTH = 1;
 const stage = document.querySelector("#magicStage");
+const initialDisplay = updateDisplayFrame();
+preserveDisplayModeLinks();
 const winnerName = createWinnerNameLabel(stage);
 
 const video = document.querySelector("#sourceVideo");
-const entryPlayback = createExperiencePlayback(video, { volume: 0.9 });
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, container: stage });
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050108);
 
-const camera = new THREE.PerspectiveCamera(43, window.innerWidth / window.innerHeight, 0.1, 140);
+const camera = new THREE.PerspectiveCamera(43, initialDisplay.aspect, 0.1, 140);
 camera.position.set(0, 0, 14);
 
 const renderer = new THREE.WebGLRenderer({
@@ -26,11 +35,11 @@ const renderer = new THREE.WebGLRenderer({
     alpha: false,
     powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.5 : 2));
+renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, isCompactDisplay() ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.22;
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(initialDisplay.width, initialDisplay.height);
 stage.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -569,7 +578,8 @@ function updateAppleFitScale() {
     const distance = camera.position.z - APPLE_DEPTH;
     const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distance;
     const visibleWidth = visibleHeight * camera.aspect;
-    const isPortraitViewport = window.innerWidth < window.innerHeight;
+    const display = getDisplaySize();
+    const isPortraitViewport = display.width < display.height;
     // Keep a deliberate amount of negative space around the finished apple. This
     // matches the reference framing and leaves the stem and full silhouette readable.
     const safeWidth = isPortraitViewport ? 0.92 : 0.64;
@@ -870,12 +880,12 @@ function animate() {
 }
 
 function onWindowResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const display = updateDisplayFrame();
+    const { width, height } = display;
     camera.aspect = width / height;
     camera.fov = width < height ? 52 : 43;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 700 ? 1.5 : 2));
+    renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, width < 700 ? 1.5 : 2));
     renderer.setSize(width, height);
     if (particleUniforms) particleUniforms.uPixelRatio.value = renderer.getPixelRatio();
 

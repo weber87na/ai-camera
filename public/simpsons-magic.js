@@ -1,21 +1,29 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/three-addons/controls/OrbitControls.js";
-import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=4";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=5";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
+import {
+    isCenturyDisplay,
+    isCompactDisplay,
+    preserveDisplayModeLinks,
+    updateDisplayFrame
+} from "/display-mode.js?v=1";
 
 const stage = document.querySelector("#magicStage");
+const initialDisplay = updateDisplayFrame();
+preserveDisplayModeLinks();
 const winnerName = createWinnerNameLabel(stage);
 const video = document.getElementById("sourceVideo");
 const soundtrack = document.getElementById("soundtrack");
 soundtrack.volume = 0.9;
-const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack], container: stage });
 
 // Three.js 核心組件
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x02030a);
 scene.fog = new THREE.FogExp2(0x02030a, 0.015);
 
-const camera = new THREE.PerspectiveCamera(43, window.innerWidth / window.innerHeight, 0.1, 120);
+const camera = new THREE.PerspectiveCamera(43, initialDisplay.aspect, 0.1, 120);
 camera.position.set(0, 0, 12);
 
 const renderer = new THREE.WebGLRenderer({
@@ -23,11 +31,11 @@ const renderer = new THREE.WebGLRenderer({
     alpha: false,
     powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.25 : 1.5));
+renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, isCompactDisplay() ? 1.25 : 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(initialDisplay.width, initialDisplay.height);
 stage.appendChild(renderer.domElement);
 
 // OrbitControls 設定
@@ -103,7 +111,7 @@ const smokeTexture = createSmokeTexture();
 // 所有粒子共用一份 geometry/material，只需 1 draw call；移動、旋轉、
 // 成長與淡入淡出均由 GPU shader 執行，避免每幀建立物件或重建 attribute。
 // ----------------------------------------------------
-const SMOKE_COUNT = window.innerWidth < 700 ? 42 : 72;
+const SMOKE_COUNT = isCompactDisplay() ? 42 : 72;
 const smokeGeometry = new THREE.BufferGeometry();
 const smokePositions = new Float32Array(SMOKE_COUNT * 3);
 const smokeDrifts = new Float32Array(SMOKE_COUNT * 2);
@@ -494,9 +502,11 @@ function animate() {
 // 初始化與事件監聽
 // ----------------------------------------------------
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const display = updateDisplayFrame();
+    camera.aspect = display.aspect;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, isCompactDisplay() ? 1.25 : 1.5));
+    renderer.setSize(display.width, display.height);
     updateSmokePointMultiplier();
 
     if (videoPlane && video) {

@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "/vendor/three-addons/loaders/GLTFLoader.js";
 import { getTodayPhotoEntries } from "./lottery-photos.js";
+import {
+    getElementPointer,
+    isCenturyDisplay,
+    updateDisplayFrame,
+    withDisplayMode
+} from "./display-mode.js?v=1";
 
 const stage = document.querySelector("#starshipStage");
 const canvas = document.querySelector("#starshipCanvas");
@@ -1186,7 +1192,7 @@ function beginPlanetEntry(route) {
     const startPosition = moonGroup.position.clone();
 
     planetEntry = {
-        route,
+        route: withDisplayMode(route),
         elapsed: 0,
         navigated: false,
         startPosition,
@@ -1288,12 +1294,13 @@ planetOptions.forEach((option, index) => {
 });
 
 function resize() {
-    width = Math.max(1, window.innerWidth);
-    height = Math.max(1, window.innerHeight);
+    const display = updateDisplayFrame();
+    width = display.width;
+    height = display.height;
     const viewportAspect = width / height;
     const imageAspect = 1672 / 941;
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height, false);
     worldCamera.aspect = viewportAspect;
     worldCamera.updateProjectionMatrix();
@@ -1307,8 +1314,9 @@ function resize() {
 }
 
 function updatePointer(event) {
-    targetPointerX = clamp((event.clientX / width - 0.5) * 2, -1, 1);
-    targetPointerY = clamp((event.clientY / height - 0.5) * 2, -1, 1);
+    const pointer = getElementPointer(event, canvas);
+    targetPointerX = clamp(pointer.ndcX, -1, 1);
+    targetPointerY = clamp(-pointer.ndcY, -1, 1);
 }
 
 function resetPointer() {
@@ -1319,8 +1327,9 @@ function resetPointer() {
 function getCockpitImageCoordinates(event) {
     const viewportAspect = width / height;
     const imageAspect = 1672 / 941;
-    let imageX = event.clientX / width;
-    let imageY = event.clientY / height;
+    const pointer = getElementPointer(event, canvas);
+    let imageX = pointer.u;
+    let imageY = pointer.v;
 
     if (viewportAspect >= imageAspect) {
         imageY = 0.5 + (imageY - 0.5) / (viewportAspect / imageAspect);
@@ -1350,10 +1359,8 @@ function navigateToActivePlanet(event) {
     const route = PLANET_ROUTES[activePlanetThemeIndex];
     if (!route) return false;
 
-    planetPointer.set(
-        (event.clientX / width) * 2 - 1,
-        -(event.clientY / height) * 2 + 1
-    );
+    const pointer = getElementPointer(event, canvas);
+    planetPointer.set(pointer.ndcX, pointer.ndcY);
     planetRaycaster.setFromCamera(planetPointer, worldCamera);
     if (!planetRaycaster.intersectObject(moonGroup, true).length) return false;
 
@@ -1369,10 +1376,8 @@ function handleStagePointerDown(event) {
         return;
     }
 
-    crtPointer.set(
-        (event.clientX / width) * 2 - 1,
-        -(event.clientY / height) * 2 + 1
-    );
+    const pointer = getElementPointer(event, canvas);
+    crtPointer.set(pointer.ndcX, pointer.ndcY);
 
     if (crtGroup.visible) {
         crtRaycaster.setFromCamera(crtPointer, overlayCamera);

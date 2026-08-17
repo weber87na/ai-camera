@@ -1,0 +1,52 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+body {
+    display: grid;
+    place-items: center;
+    background: #000;
+}
+
+.display-output-frame,
+.display-experience {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.display-output-frame {
+    position: relative;
+    overflow: hidden;
+}
+
+.display-experience {
+    position: relative;
+    isolation: isolate;
+}
+
+html.century-display .display-output-frame {
+    width: var(--display-frame-width);
+    height: var(--display-frame-height);
+}
+
+html.century-display .display-experience {
+    width: 3008px;
+    height: 1376px;
+    transform: scale(var(--display-scale-x), var(--display-scale-y));
+    transform-origin: left top;
+}
+
+html.century-display .display-experience > .experience-back,
+html.century-display .display-experience > .experience-playback-fallback {
+    position: absolute;
+}

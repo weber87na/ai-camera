@@ -1,13 +1,21 @@
 import * as THREE from "three";
-import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=4";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=5";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
+import {
+    isCenturyDisplay,
+    isCompactDisplay,
+    preserveDisplayModeLinks,
+    updateDisplayFrame
+} from "/display-mode.js?v=1";
 
 const stage = document.querySelector("#painterStage");
+updateDisplayFrame();
+preserveDisplayModeLinks();
 const winnerName = createWinnerNameLabel(stage);
 const video = document.querySelector("#sourceVideo");
 const soundtrack = document.querySelector("#soundtrack");
 soundtrack.volume = 0.9;
-const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack] });
+const entryPlayback = createExperiencePlayback(video, { volume: 0.9, companions: [soundtrack], container: stage });
 const loadingMessage = document.querySelector("#loadingMessage");
 
 const ABSORB_START = 3.75;
@@ -30,7 +38,7 @@ const renderer = new THREE.WebGLRenderer({
     alpha: false,
     powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.5 : 2));
+renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, isCompactDisplay() ? 1.5 : 2));
 // This shader is a display-space compositor: keeping the renderer and both
 // media textures untagged preserves the exact colors decoded by the browser.
 // Applying the renderer's sRGB conversion here would also re-encode the video.
@@ -512,9 +520,8 @@ function updateTimeline() {
 }
 
 function resize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 700 ? 1.5 : 2));
+    const { width, height } = updateDisplayFrame();
+    renderer.setPixelRatio(isCenturyDisplay ? 1 : Math.min(window.devicePixelRatio || 1, width < 700 ? 1.5 : 2));
     renderer.setSize(width, height, false);
     renderer.getDrawingBufferSize(uniforms.uResolution.value);
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check styles.js && node --check public/app.js && node --check public/lottery-photos.js && node --check public/chinese-magic.js && node --check public/simpsons-magic.js && node --check public/hunterxhunter.js && node --check public/disney.js && node --check public/painter.js"
+    "check": "node --check server.js && node --check styles.js && node --check public/app.js && node --check public/display-mode.js && node --check public/experience-playback.js && node --check public/lottery-photos.js && node --check public/starship.js && node --check public/chinese-magic.js && node --check public/simpsons-magic.js && node --check public/hunterxhunter.js && node --check public/disney.js && node --check public/painter.js"
   },
   "engines": {
     "node": ">=20"

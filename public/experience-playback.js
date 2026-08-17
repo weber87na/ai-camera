@@ -70,7 +70,11 @@ export async function primeVideoFrame(video) {
     }
 }
 
-export function createExperiencePlayback(video, { volume = 0.95, companions = [] } = {}) {
+export function createExperiencePlayback(video, {
+    volume = 0.95,
+    companions = [],
+    container = document.body
+} = {}) {
     const requested = consumePlaybackRequest();
     const media = [video, ...companions].filter(Boolean);
     let fallbackButton = null;
@@ -103,7 +107,7 @@ export function createExperiencePlayback(video, { volume = 0.95, companions = []
                 // Keep the button visible so another trusted gesture can retry.
             }
         });
-        document.body.appendChild(fallbackButton);
+        container.appendChild(fallbackButton);
     };
 
     const play = async ({ sound = false } = {}) => {
