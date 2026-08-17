@@ -1802,11 +1802,11 @@ async function init() {
 
     if (lotteryReady) {
         const talismanUrls = [
-            '/images/符咒.png',
-            '/images/符咒2.png',
-            '/images/符咒3.png',
-            '/images/符咒4.png',
-            '/images/符咒5.png'
+            '/images/符咒.webp?v=2',
+            '/images/符咒2.webp?v=2',
+            '/images/符咒3.webp?v=2',
+            '/images/符咒4.webp?v=2',
+            '/images/符咒5.webp?v=2'
         ];
         const talismanImgs = await Promise.all(talismanUrls.map(url => loadImage(url)));
         for (let i = 0; i < MAX_PHOTOS; i++) {

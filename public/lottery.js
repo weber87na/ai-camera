@@ -2,11 +2,11 @@ import * as THREE from "three";
 import { requestExperiencePlayback } from "/experience-playback.js?v=1";
 
 const VIDEO_SOURCES = [
-    { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b", boxTexture: "/images/simpsons-packaging.png" },
-    { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca", boxTexture: "/images/guava-packaging.png" },
-    { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45", boxTexture: "/images/talisman-packaging.png" },
-    { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81", boxTexture: "/images/chain-packaging.png" },
-    { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83", boxTexture: "/images/paint-packaging.png" }
+    { url: "/videos/辛普森.mp4", poster: "/example-images/video-first-frame-01.jpg", route: "/simpsons-magic", label: "辛普森", code: "ROLL 01", accent: "#f0b94b", boxTexture: "/images/simpsons-packaging.webp?v=2" },
+    { url: "/videos/迪士尼女巫.mp4", poster: "/example-images/video-first-frame-02.jpg", route: "/disney", label: "迪士尼女巫", code: "ROLL 02", accent: "#9d68ca", boxTexture: "/images/guava-packaging.webp?v=2" },
+    { url: "/videos/道士.mp4", poster: "/example-images/video-first-frame-03.jpg", route: "/chinese-magic", label: "道士", code: "ROLL 03", accent: "#d76c45", boxTexture: "/images/talisman-packaging.webp?v=2" },
+    { url: "/videos/鎖鏈殺手.mp4", poster: "/example-images/video-first-frame-04.jpg", route: "/hunterxhunter", label: "鎖鏈殺手", code: "ROLL 04", accent: "#777b81", boxTexture: "/images/chain-packaging.webp?v=2" },
+    { url: "/videos/顏料吸收.mp4", poster: "/example-images/video-first-frame-05.jpg", route: "/painter", label: "顏料吸收", code: "ROLL 05", accent: "#398a83", boxTexture: "/images/paint-packaging.webp?v=2" }
 ];
 
 const FILM_VIDEO_SOURCES = [

@@ -5,17 +5,17 @@ import { getTodayPhotoEntries } from "./lottery-photos.js";
 const stage = document.querySelector("#starshipStage");
 const canvas = document.querySelector("#starshipCanvas");
 const starshipMusic = document.querySelector("#starshipMusic");
-const NASA_MOON_TEXTURE = "/images/moon-texture.jpg?v=1";
-const STARSHIP_TEXTURE = "/images/starship.png?v=1";
+const NASA_MOON_TEXTURE = "/images/moon-texture.webp?v=2";
+const STARSHIP_TEXTURE = "/images/starship.webp?v=2";
 const GUAVA_MODEL_PATH = "/guava/guava.glb";
 const CRT_WIDTH = 0.78;
 const CRT_HEIGHT = 0.72;
 const PLANET_TEXTURE_PATHS = [
-    "/images/chain-packaging.png",
-    "/images/guava-packaging.png",
-    "/images/paint-packaging.png",
-    "/images/simpsons-packaging.png",
-    "/images/talisman-packaging.png"
+    "/images/chain-packaging.webp?v=2",
+    "/images/guava-packaging.webp?v=2",
+    "/images/paint-packaging.webp?v=2",
+    "/images/simpsons-packaging.webp?v=2",
+    "/images/talisman-packaging.webp?v=2"
 ];
 const CAMERA_LAG = 16;
 const STAR_COUNT = 720;
@@ -66,8 +66,9 @@ const PLANET_TRANSITION_WAIT = 1.25;
 const PLANET_TRANSITION_ACCELERATION = 3;
 const PLANET_TRANSITION_MAX_SPEED = 14;
 const PLANET_ENTRY_DURATION = 1.05;
-const PLANET_ENTRY_SCALE_MULTIPLIER = 4;
-const PLANET_ENTRY_MAX_SPEED = 6.5;
+const PLANET_ENTRY_HOLD = 0.22;
+const PLANET_ENTRY_SCALE_MULTIPLIER = 2.85;
+const PLANET_ENTRY_MAX_SPEED = 1.8;
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 let width = 1;
@@ -1193,7 +1194,7 @@ function beginPlanetEntry(route) {
         targetPosition: new THREE.Vector3(
             startPosition.x * 0.18,
             startPosition.y * 0.18,
-            -3.1
+            -4.8
         )
     };
 
@@ -1254,16 +1255,19 @@ function updatePlanetEntry(deltaSeconds) {
     planetEntry.elapsed += deltaSeconds;
     const progress = clamp(planetEntry.elapsed / PLANET_ENTRY_DURATION, 0, 1);
     const easedProgress = progress * progress * (3 - 2 * progress);
-    transitionIntensity = easedProgress * 0.72;
+    const isHoldingFinalFrame = progress >= 1;
+    transitionIntensity = isHoldingFinalFrame ? 0 : easedProgress * 0.12;
     backgroundUniforms.uTravel.value = transitionIntensity;
     travelUniforms.uIntensity.value = transitionIntensity;
 
-    if (progress >= 1 && !planetEntry.navigated) {
+    if (planetEntry.elapsed >= PLANET_ENTRY_DURATION + PLANET_ENTRY_HOLD && !planetEntry.navigated) {
         planetEntry.navigated = true;
         window.location.assign(planetEntry.route);
     }
 
-    return 1 + easedProgress * (PLANET_ENTRY_MAX_SPEED - 1);
+    return isHoldingFinalFrame
+        ? 1
+        : 1 + easedProgress * (PLANET_ENTRY_MAX_SPEED - 1);
 }
 
 function advancePlanetCycle() {

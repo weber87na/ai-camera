@@ -94,51 +94,29 @@ function loadImage(url) {
     });
 }
 
-function waitForUserStart() {
-    state = "waiting";
+async function playDisneyFromClick() {
+    if (state === "transitioning" || state === "winner") return false;
 
-    return new Promise((resolve) => {
-        let listening = false;
-        let resolved = false;
-        const cleanup = () => {
-            window.removeEventListener("pointerdown", settle);
-            window.removeEventListener("keydown", settle);
-            listening = false;
-        };
-        const listen = () => {
-            if (resolved || listening) return;
-            listening = true;
-            window.addEventListener("pointerdown", settle, { once: true });
-            window.addEventListener("keydown", settle, { once: true });
-        };
-        const settle = () => {
-            if (resolved) return;
-            cleanup();
+    video.pause();
+    video.currentTime = 0;
+    video.muted = false;
+    video.defaultMuted = false;
+    video.volume = 0.9;
 
-            // Keep play() inside the trusted pointer/key event. Calling it after
-            // an awaited promise can be rejected by autoplay policy even though
-            // the user has already clicked.
-            video.muted = false;
-            video.volume = 0.9;
-            entryPlayback.play({ sound: true }).then(() => {
-                resolved = true;
-                resolve();
-            }).catch((error) => {
-                video.pause();
-                video.currentTime = 0;
-                video.muted = true;
-                video.volume = 0;
-                console.warn("Video playback needs user interaction.", error);
-                // Keep waiting; the next real page click will retry the gesture.
-                listen();
-            });
-        };
-
-        // The lottery box click grants a same-origin playback attempt. Direct
-        // visits still wait for a trusted click as before.
-        if (entryPlayback.requested) settle();
-        else listen();
-    });
+    try {
+        await entryPlayback.play({ sound: true });
+        state = "playing";
+        return true;
+    } catch (error) {
+        video.muted = true;
+        video.defaultMuted = true;
+        video.volume = 0;
+        video.pause();
+        video.currentTime = 0;
+        state = "waiting";
+        console.warn("Disney playback needs another user click.", error);
+        return false;
+    }
 }
 
 async function getCandidateImages() {
@@ -807,8 +785,8 @@ async function startMagicExperience() {
     setPortraitProjectionOpacity(0);
 
     video.currentTime = 0;
-    await waitForUserStart();
-    state = "playing";
+    await primeVideoFrame(video);
+    state = "waiting";
 }
 
 async function playPreviewFromBeginning() {
@@ -911,8 +889,12 @@ function onWindowResize() {
 
 window.addEventListener("resize", onWindowResize);
 stage.addEventListener("click", () => {
-    if (!previewOnly) return;
-    void playPreviewFromBeginning();
+    if (previewOnly) {
+        void playPreviewFromBeginning();
+        return;
+    }
+
+    if (state === "waiting" || state === "blocked") void playDisneyFromClick();
 });
 
 async function init() {
