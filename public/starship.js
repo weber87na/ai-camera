@@ -73,7 +73,8 @@ const PLANET_TRANSITION_ACCELERATION = 3;
 const PLANET_TRANSITION_MAX_SPEED = 14;
 const PLANET_ENTRY_DURATION = 1.05;
 const PLANET_ENTRY_HOLD = 0.22;
-const PLANET_ENTRY_SCALE_MULTIPLIER = 2.85;
+const PLANET_ENTRY_TARGET_Z = -6.6;
+const PLANET_ENTRY_SCREEN_FRACTION = 0.76;
 const PLANET_ENTRY_MAX_SPEED = 1.8;
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -141,6 +142,20 @@ backgroundCamera.position.z = 1;
 const worldCamera = new THREE.PerspectiveCamera(BASE_CAMERA_FOV, 1, 0.1, 100);
 const overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
 overlayCamera.position.z = 1;
+
+function getPlanetEntryTargetScale(targetPosition) {
+    const distanceToTarget = Math.max(0.1, worldCamera.position.distanceTo(targetPosition));
+    const halfVerticalFov = THREE.MathUtils.degToRad(worldCamera.fov * 0.5);
+    const targetAngularRadius = Math.atan(
+        PLANET_ENTRY_SCREEN_FRACTION * Math.tan(halfVerticalFov)
+    );
+
+    // moonMesh is a unit sphere, so this radius produces the desired projected diameter.
+    return Math.max(
+        MOON_BASE_SCALE,
+        distanceToTarget * Math.sin(targetAngularRadius)
+    );
+}
 
 const backgroundUniforms = {
     uTime: { value: 0 },
@@ -1190,18 +1205,21 @@ function beginPlanetEntry(route) {
         ? MOON_THEME
         : PLANET_THEMES[activePlanetThemeIndex % PLANET_THEMES.length];
     const startPosition = moonGroup.position.clone();
+    const startScale = moonGroup.scale.x || MOON_BASE_SCALE;
+    const targetPosition = new THREE.Vector3(
+        startPosition.x * 0.18,
+        startPosition.y * 0.18,
+        PLANET_ENTRY_TARGET_Z
+    );
 
     planetEntry = {
         route: withDisplayMode(route),
         elapsed: 0,
         navigated: false,
         startPosition,
-        startScale: moonGroup.scale.x || MOON_BASE_SCALE,
-        targetPosition: new THREE.Vector3(
-            startPosition.x * 0.18,
-            startPosition.y * 0.18,
-            -4.8
-        )
+        startScale,
+        targetPosition,
+        targetScale: Math.max(startScale, getPlanetEntryTargetScale(targetPosition))
     };
 
     transitionIntensity = 0;
@@ -1462,7 +1480,7 @@ function animate(now) {
         const easedEntryProgress = entryProgress * entryProgress * (3 - 2 * entryProgress);
         moonGroup.scale.setScalar(THREE.MathUtils.lerp(
             planetEntry.startScale,
-            planetEntry.startScale * PLANET_ENTRY_SCALE_MULTIPLIER,
+            planetEntry.targetScale,
             easedEntryProgress
         ));
     } else {
