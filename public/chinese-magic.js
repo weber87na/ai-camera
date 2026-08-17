@@ -7,7 +7,7 @@ import {
     isCompactDisplay,
     preserveDisplayModeLinks,
     updateDisplayFrame
-} from "/display-mode.js?v=1";
+} from "/display-mode.js?v=2";
 
 const REFERENCE_IMAGES = Array.from({ length: 10 }, (_, index) => {
     const number = String(index + 1).padStart(2, "0");

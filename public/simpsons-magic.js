@@ -7,7 +7,7 @@ import {
     isCompactDisplay,
     preserveDisplayModeLinks,
     updateDisplayFrame
-} from "/display-mode.js?v=1";
+} from "/display-mode.js?v=2";
 
 const stage = document.querySelector("#magicStage");
 const initialDisplay = updateDisplayFrame();

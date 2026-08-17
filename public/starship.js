@@ -6,7 +6,7 @@ import {
     isCenturyDisplay,
     updateDisplayFrame,
     withDisplayMode
-} from "./display-mode.js?v=1";
+} from "./display-mode.js?v=2";
 
 const stage = document.querySelector("#starshipStage");
 const canvas = document.querySelector("#starshipCanvas");

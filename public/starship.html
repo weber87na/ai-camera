@@ -10,7 +10,7 @@
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
     <link rel="stylesheet" href="/starship.css?v=3">
-    <link rel="stylesheet" href="/display-mode.css?v=1">
+    <link rel="stylesheet" href="/display-mode.css?v=2">
 </head>
 
 <body>
@@ -19,6 +19,7 @@
             <main id="starshipStage">
                 <canvas id="starshipCanvas" aria-hidden="true"></canvas>
             </main>
+            <a class="display-mode-toggle" data-display-mode-toggle href="?display=century" aria-label="切換至世紀廳模式">世紀廳模式</a>
             <audio
                 id="starshipMusic"
                 src="/sounds/star-wars-style.mp3"
@@ -31,7 +32,7 @@
         </div>
     </div>
 
-    <script type="module" src="/starship.js?v=25"></script>
+    <script type="module" src="/starship.js?v=26"></script>
 </body>
 
 </html>

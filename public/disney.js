@@ -10,7 +10,7 @@ import {
     isCompactDisplay,
     preserveDisplayModeLinks,
     updateDisplayFrame
-} from "/display-mode.js?v=1";
+} from "/display-mode.js?v=2";
 
 const FINAL_GLOW_LEAD = 0.5;
 const PARTICLE_TRANSITION_DURATION = 1.7;

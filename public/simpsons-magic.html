@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/simpsons-magic.css?v=1">
     <link rel="stylesheet" href="/experience-nav.css?v=1">
     <link rel="stylesheet" href="/winner-name.css?v=1">
-    <link rel="stylesheet" href="/display-mode.css?v=1">
+    <link rel="stylesheet" href="/display-mode.css?v=2">
     <script type="importmap">
         { "imports": { "three": "/vendor/three/three.module.min.js" } }
     </script>
@@ -17,6 +17,7 @@
     <div class="display-output-frame">
         <div class="display-experience">
             <a class="experience-back" href="/starship" data-preserve-display aria-label="回到大廳">返回大廳</a>
+            <a class="display-mode-toggle" data-display-mode-toggle href="?display=century" aria-label="切換至世紀廳模式">世紀廳模式</a>
 
             <video id="sourceVideo" src="/videos/辛普森.mp4" crossorigin="anonymous" preload="auto" playsinline muted style="display: none;"></video>
             <audio id="soundtrack" src="/sounds/辛普森.mp3" preload="auto" aria-hidden="true"></audio>

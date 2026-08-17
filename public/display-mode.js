@@ -89,3 +89,28 @@ export function preserveDisplayModeLinks(root = document) {
         if (href) link.setAttribute("href", withDisplayMode(href));
     });
 }
+
+export function initializeDisplayModeToggle(root = document) {
+    const toggles = root.querySelectorAll("[data-display-mode-toggle]");
+    if (!toggles.length) return;
+
+    const toggleUrl = new URL(window.location.href);
+    const nextMode = isCenturyDisplay ? "normal" : "century";
+    if (isCenturyDisplay) {
+        toggleUrl.searchParams.delete("display");
+    } else {
+        toggleUrl.searchParams.set("display", "century");
+    }
+
+    const href = `${toggleUrl.pathname}${toggleUrl.search}${toggleUrl.hash}`;
+    const label = isCenturyDisplay ? "普通模式" : "世紀廳模式";
+    const ariaLabel = isCenturyDisplay ? "切換至普通模式" : "切換至世紀廳模式";
+    toggles.forEach(toggle => {
+        toggle.href = href;
+        toggle.textContent = label;
+        toggle.setAttribute("aria-label", ariaLabel);
+        toggle.dataset.displayMode = nextMode;
+    });
+}
+
+initializeDisplayModeToggle();
