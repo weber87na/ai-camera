@@ -1,35 +1,3 @@
-const PLAYBACK_REQUEST_KEY = "lottery:experience-playback";
-const PLAYBACK_REQUEST_TTL = 30_000;
-
-function normalizePath(path) {
-    return String(path || "/").replace(/\/+$/, "") || "/";
-}
-
-export function requestExperiencePlayback(route) {
-    try {
-        window.sessionStorage.setItem(PLAYBACK_REQUEST_KEY, JSON.stringify({
-            route: normalizePath(route),
-            expiresAt: Date.now() + PLAYBACK_REQUEST_TTL
-        }));
-    } catch {
-        // Navigation still works when storage is unavailable; the destination
-        // page will fall back to its regular media policy.
-    }
-}
-
-function consumePlaybackRequest() {
-    try {
-        const serialized = window.sessionStorage.getItem(PLAYBACK_REQUEST_KEY);
-        window.sessionStorage.removeItem(PLAYBACK_REQUEST_KEY);
-        if (!serialized) return false;
-        const request = JSON.parse(serialized);
-        return request.expiresAt >= Date.now()
-            && normalizePath(request.route) === normalizePath(window.location.pathname);
-    } catch {
-        return false;
-    }
-}
-
 /**
  * Decode one muted video frame so a Three.js VideoTexture has a visible
  * initial image before the user starts the experience.
@@ -75,12 +43,11 @@ export function createExperiencePlayback(video, {
     companions = [],
     container = document.body
 } = {}) {
-    const requested = consumePlaybackRequest();
     const media = [video, ...companions].filter(Boolean);
     let fallbackButton = null;
 
     const applySound = (force = false) => {
-        if (!requested && !force) return;
+        if (!force) return;
         media.forEach(element => {
             element.defaultMuted = false;
             element.muted = false;
@@ -94,7 +61,7 @@ export function createExperiencePlayback(video, {
     };
 
     const showFallback = () => {
-        if (!requested || fallbackButton) return;
+        if (fallbackButton) return;
         fallbackButton = document.createElement("button");
         fallbackButton.type = "button";
         fallbackButton.className = "experience-playback-fallback";
@@ -117,11 +84,11 @@ export function createExperiencePlayback(video, {
             applySound(sound);
             hideFallback();
         } catch (error) {
-            showFallback();
+            if (sound) showFallback();
             throw error;
         }
     };
 
     video.addEventListener("playing", hideFallback);
-    return { requested, applySound, play, showFallback };
+    return { applySound, play, showFallback };
 }

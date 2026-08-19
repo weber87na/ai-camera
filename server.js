@@ -167,9 +167,6 @@ app.use("/vendor/three-addons", express.static(path.join(process.cwd(), "node_mo
 // 提供 storage 目錄的靜態存取（圖片）
 app.use("/storage", express.static(STORAGE_ROOT, { maxAge: "7d" }));
 
-// lottery 膠捲使用的範例圖片
-app.use("/example-images", express.static(path.join(process.cwd(), "example-images"), { maxAge: "7d" }));
-
 app.get(["/chinese-magic", "/chinese-magic/"], (_req, res) => {
   res.sendFile(path.resolve("public", "chinese-magic.html"));
 });
@@ -192,10 +189,6 @@ app.get(["/painter", "/painter/"], (_req, res) => {
 
 app.get(["/gallery", "/gallery/"], (_req, res) => {
   res.sendFile(path.resolve("public", "gallery.html"));
-});
-
-app.get(["/lottery", "/lottery/"], (_req, res) => {
-  res.sendFile(path.resolve("public", "lottery.html"));
 });
 
 app.get(["/starship", "/starship/"], (_req, res) => {

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=5";
+import { createExperiencePlayback, primeVideoFrame } from "/experience-playback.js?v=6";
 import { createWinnerNameLabel, getPhotoCandidateEntries, pickRandomPhotoEntry } from "/lottery-photos.js?v=3";
 import {
     isCenturyDisplay,

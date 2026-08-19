@@ -10,7 +10,6 @@
 | --- | --- |
 | [AI 風格照相館](http://localhost:3000/) | 選擇風格、拍照並生成 AI 肖像 |
 | [作品藝廊](http://localhost:3000/gallery) | 瀏覽當日生成作品 |
-| [膠捲抽選](http://localhost:3000/lottery) | 以膠捲形式展示當日作品並進行抽選 |
 | [顏料吸收](http://localhost:3000/painter) | 顏料吸收動畫與中獎圖片展示 |
 | [中華一番／小當家魔法](http://localhost:3000/chinese-magic) | 3D 魔法展示與抽選體驗 |
 | [辛普森魔法抽卡](http://localhost:3000/simpsons-magic) | 辛普森主題 3D 抽卡體驗 |
