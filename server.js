@@ -6,6 +6,7 @@ import express from "express";
 import multer from "multer";
 import OpenAI, { toFile } from "openai";
 import { getStylePrompt } from "./styles.js";
+import { IMAGE_MODEL, DEFAULT_IMAGE_QUALITY, estimateCost } from "./image-config.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -207,19 +208,6 @@ function publicJob(job) {
   return common;
 }
 
-function estimateCost(usage) {
-  const details = usage?.input_tokens_details || {};
-  const textRate        = Number(process.env.TEXT_INPUT_USD_PER_MILLION)  || 5;
-  const imageInputRate  = Number(process.env.IMAGE_INPUT_USD_PER_MILLION) || 8;
-  const imageOutputRate = Number(process.env.IMAGE_OUTPUT_USD_PER_MILLION)|| 30;
-  const usd = (
-    (details.text_tokens  || 0) * textRate +
-    (details.image_tokens || 0) * imageInputRate +
-    (usage?.output_tokens || 0) * imageOutputRate
-  ) / 1_000_000;
-  return { usd, twd: usd * exchangeRate, exchangeRate, estimated: true };
-}
-
 async function runJob(job) {
   job.status = "processing";
   activeJobs += 1;
@@ -227,10 +215,10 @@ async function runJob(job) {
     if (!process.env.OPENAI_API_KEY) throw new Error("伺服器尚未設定 OPENAI_API_KEY");
     const image  = await toFile(job.photo, "photo.jpg", { type: job.mimeType });
     const result = await openai.images.edit({
-      model:              "gpt-image-2",
+      model:              IMAGE_MODEL,
       image,
       prompt:             getStylePrompt(job.style),
-      quality:            process.env.IMAGE_QUALITY || "low",
+      quality:            process.env.IMAGE_QUALITY || DEFAULT_IMAGE_QUALITY,
       size:               "1024x1536",
       output_format:      "jpeg",
       output_compression: 85
@@ -245,7 +233,7 @@ async function runJob(job) {
     };
     job.image  = `data:image/jpeg;base64,${encoded}`;
     job.usage  = usage;
-    job.cost   = estimateCost(result.usage);
+    job.cost   = estimateCost(result.usage, exchangeRate);
     job.status = "completed";
     job.photo  = null;
 

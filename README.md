@@ -89,4 +89,22 @@ npm start
 4. Startup Command 留空，平台會執行 `npm start`。
 5. 將 Always On 開啟，並保持單一執行個體。
 
-可選環境變數請參考 `.env.example`。價格參數是估算用途，應按活動當天的 OpenAI 官方價格更新；實際費用以 OpenAI 帳單為準。
+可選環境變數請參考 `.env.example`。部署時請將既有的 `IMAGE_QUALITY` 設為 `high`，避免舊環境的 `low` 覆蓋新預設。
+
+## 圖片模型與成本
+
+圖片編輯使用 `gpt-image-2.5-flare`，預設品質 `high`，輸出維持 `1024x1536` JPEG。模型與品質依據 [OpenAI 模型文件](https://developers.openai.com/api/docs/models/gpt-image-2.5-flare)。
+
+依 [OpenAI 官方價格](https://developers.openai.com/api/docs/pricing)（2026-09-09 查核），每百萬 tokens 的美元費率如下：
+
+| 類別 | 一般 | 快取 |
+| --- | ---: | ---: |
+| 文字輸入 | $5 | $1.25 |
+| 圖片輸入 | $8 | $2 |
+| 圖片輸出 | $30 | — |
+
+`image-config.js` 依回傳的 `usage` 計算文字輸入、圖片輸入及圖片輸出費用，再以 `USD_TO_TWD` 換算新台幣。品質影響 token 用量，不能沿用舊模型的固定每張價格。若提供 `output_tokens_details.image_tokens`，只計入圖片輸出；缺少必要 usage 時回傳未知成本，前端顯示「依帳單為準」。
+
+[Images API 文件](https://developers.openai.com/api/reference/resources/images/methods/edit) 尚未列出文字與圖片各自的快取 token 明細，因此輸入成本以一般費率估算，未扣快取折扣，可能高於帳單。價格可用既有環境變數覆寫，實際費用以 OpenAI 帳單為準；匯率是本機設定，並非 OpenAI 官方匯率。
+
+執行 `npm test` 驗證成本計算，`npm run check` 檢查程式語法。
