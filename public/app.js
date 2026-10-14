@@ -36,14 +36,12 @@ async function loadAppConfig() {
   $('#configRetryButton').hidden = true;
   $('#standardHome').hidden = true;
   $('#operaHome').hidden = true;
-  $('#operaLotteryLink').hidden = true;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const config = await readJson(await fetch('/api/config', { cache: 'no-store', signal: controller.signal }));
     if (!['standard', 'opera'].includes(config.mode)) throw new Error('拍照模式設定無效，請重新載入');
     document.body.classList.toggle('opera-mode', config.mode === 'opera');
-    $('#operaLotteryLink').hidden = config.mode !== 'opera';
     if (config.mode === 'opera') {
       renderOperaMode($('#operaHome'), config.roles, selection => {
         selectedStyle = selection;
@@ -68,7 +66,6 @@ async function loadAppConfig() {
   } catch (error) {
     appConfig = null;
     selectedStyle = null;
-    $('#operaLotteryLink').hidden = true;
     $('#standardHome').hidden = true;
     $('#operaHome').hidden = true;
     $('#configMessage').textContent = error.name === 'AbortError'
@@ -258,6 +255,25 @@ function setResultMessage(message) {
   status.textContent = message || '';
   status.hidden = !message;
 }
+function showResultCosts(result) {
+  const withVideo = Boolean(appConfig?.video?.enabled || result.imageCost || result.videoCost || result.video);
+  // In video mode result.cost is the combined total, never the image price.
+  const imageCost = result.imageCost ?? (withVideo ? null : result.cost);
+  const validAmount = amount => Number.isFinite(amount) && amount >= 0;
+  const renderCost = (prefix, cost, enabled = true) => {
+    $(`#${prefix}Cost`).textContent = !enabled ? '未啟用'
+      : validAmount(cost?.twd) ? `NT$${cost.twd.toFixed(2)}` : '依帳單為準';
+    $(`#${prefix}CostUsd`).textContent = enabled && validAmount(cost?.usd)
+      ? `約 US$${cost.usd.toFixed(3)}` : '';
+  };
+  renderCost('image', imageCost);
+  renderCost('video', result.videoCost, withVideo);
+  const tokens = result.usage?.totalTokens;
+  $('#imageUsage').textContent = Number.isFinite(tokens) && tokens > 0 ? `${tokens.toLocaleString()} Token` : '';
+  const duration = result.videoMetadata?.duration;
+  $('#videoUsage').textContent = !withVideo ? '' : result.videoWarning ? '影片未完成'
+    : Number.isFinite(duration) && duration > 0 ? `${duration} 秒影片` : '';
+}
 function showResult(result) {
   stopResultVideo();
   const image = $('#resultImage');
@@ -292,10 +308,7 @@ function showResult(result) {
     $('#shareButton').textContent = '分享影片';
   }
   $('#resultStyleLabel').textContent = selectedStyle.name;
-  $('#totalTokens').textContent = result.usage?.totalTokens?.toLocaleString() || '依帳單為準';
-  $('#tokenLabel').textContent = appConfig?.video?.enabled ? '圖片 Token' : '總 Token';
-  $('#totalCost').textContent = result.cost?.twd != null ? `NT$${Number(result.cost.twd).toFixed(2)}` : '依帳單為準';
-  $('#totalCostUsd').textContent = result.cost?.usd != null ? `約 US$${Number(result.cost.usd).toFixed(3)}` : '';
+  showResultCosts(result);
   show('resultScreen');
   if (resultVideoUrl) video.play().catch(() => {
     if (resultVideoUrl) setResultMessage('點擊影片播放鍵即可播放。');

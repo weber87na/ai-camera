@@ -23,18 +23,32 @@ export function operaCandidates(data, videoEnabled) {
         const video = mediaUrl(photo?.video);
         if (!url || (videoEnabled && !video)) return [];
         const name = typeof photo.name === 'string' ? photo.name.replace(/\s+/g, ' ').trim() : '';
-        return [{ url, video: videoEnabled ? video : '', name: name || '未具名參加者' }];
+        return [{
+            url, video: videoEnabled ? video : '', name: name || '未具名參加者',
+            participantKey: name ? `name:${name}` : `url:${url}`
+        }];
     });
     return [...new Map(entries.map(entry => [entry.url, entry])).values()];
 }
 
-export function pickOperaWinner(entries) {
+function participantKey(entry) {
+    if (entry?.participantKey) return entry.participantKey;
+    const name = typeof entry?.name === 'string' ? entry.name.replace(/\s+/g, ' ').trim() : '';
+    return name ? `name:${name}` : `url:${entry?.url}`;
+}
+
+export function pickOperaWinner(entries, previousWinner = null) {
     if (!entries.length) return null;
-    // Rejection sampling avoids modulo bias; no previous winner is excluded.
+    const alternatives = previousWinner
+        ? entries.filter(entry => participantKey(entry) !== participantKey(previousWinner))
+        : entries;
+    // A single participant stays drawable even when they own several photos.
+    const candidates = alternatives.length ? alternatives : entries;
+    // Rejection sampling keeps selection unbiased within the eligible pool.
     const random = new Uint32Array(1);
-    const limit = 0x100000000 - (0x100000000 % entries.length);
+    const limit = 0x100000000 - (0x100000000 % candidates.length);
     do { globalThis.crypto.getRandomValues(random); } while (random[0] >= limit);
-    return entries[random[0] % entries.length];
+    return candidates[random[0] % candidates.length];
 }
 
 export async function fetchOperaPool() {
@@ -44,7 +58,8 @@ export async function fetchOperaPool() {
     const config = await configResponse.json();
     if (config.mode !== 'opera') throw new Error('目前未開啟歌仔戲模式，請返回拍照頁。');
     const videoEnabled = config.video?.enabled === true;
-    const response = await fetch(`/api/photos/${operaDateString()}`, { cache: 'no-store', signal });
+    const date = operaDateString();
+    const response = await fetch(`/api/photos/${date}`, { cache: 'no-store', signal });
     if (!response.ok) throw new Error('無法讀取今日名單，請稍後重試。');
-    return { videoEnabled, entries: operaCandidates(await response.json(), videoEnabled) };
+    return { date, videoEnabled, entries: operaCandidates(await response.json(), videoEnabled) };
 }

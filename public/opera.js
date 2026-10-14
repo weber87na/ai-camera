@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from '/vendor/three-addons/environments/RoomEnvironment.js';
 import { createOperaProps } from '/opera-props.js?v=3';
 import { createOperaAtmosphere } from '/opera-atmosphere.js?v=2';
-import { fetchOperaPool, pickOperaWinner } from '/opera-lottery.js?v=1';
+import { fetchOperaPool, pickOperaWinner } from '/opera-lottery.js?v=2';
 
 const $ = selector => document.querySelector(selector);
 const stage = $('#operaStage');
@@ -25,6 +25,8 @@ let pool = null;
 let busy = false;
 let activeProp = null;
 let winner = null;
+const previousWinners = new Map();
+let previousDrawDate = '';
 let lastTrigger = null;
 let mediaVersion = 0;
 let mediaTimer = null;
@@ -75,6 +77,10 @@ function setBusy(value) {
 }
 
 function updatePoolInfo() {
+    if (pool.date !== previousDrawDate) {
+        previousWinners.clear();
+        previousDrawDate = pool.date;
+    }
     $('#refreshPool').hidden = pool.entries.length > 0;
 }
 
@@ -113,11 +119,12 @@ async function draw(prop, trigger) {
             new Promise(resolve => setTimeout(resolve, reducedMotion ? 0 : 650))
         ]);
         updatePoolInfo();
-        winner = pickOperaWinner(pool.entries);
+        winner = pickOperaWinner(pool.entries, previousWinners.get(prop.id));
         if (!winner) {
             status.textContent = emptyMessage();
             return;
         }
+        previousWinners.set(prop.id, winner);
         showWinner();
     } catch (error) {
         pool = null;
@@ -135,7 +142,6 @@ function clearMedia() {
     video.onloadeddata = null;
     video.onerror = null;
     video.onplaying = null;
-    video.onended = null;
     image.onload = null;
     image.onerror = null;
     video.pause();
@@ -227,11 +233,6 @@ function showWinner() {
         clearTimeout(mediaTimer);
         mediaStatus.textContent = '';
         playButton.hidden = true;
-    };
-    video.onended = () => {
-        mediaStatus.textContent = '好戲謝幕，恭喜中獎。';
-        playButton.setAttribute('aria-label', '再次播放中獎影片');
-        playButton.hidden = false;
     };
     playButton.setAttribute('aria-label', '播放中獎影片');
     video.src = winner.video;

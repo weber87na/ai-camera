@@ -17,7 +17,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;600;700;900&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet"
-    href="style.css?v=29" />
+    href="style.css?v=30" />
   <link rel="stylesheet"
     href="opera-mode.css?v=9" />
   <link rel="stylesheet"
@@ -71,7 +71,6 @@
         </form>
         <a class="gallery-button"
           href="gallery.html">來去瞧瞧</a>
-        <a class="gallery-button" id="operaLotteryLink" href="/opera" hidden>好戲開獎 ↗</a>
       </div>
     </section>
 
@@ -164,10 +163,19 @@
             id="resultStyleLabel"></div>
         </div>
         <p class="result-media-status" id="resultMediaStatus" role="status" aria-live="polite" hidden></p>
-        <div class="cost-card">
-          <div><small>本次使用</small><strong id="totalTokens">—</strong><span id="tokenLabel">總 Token</span></div>
-          <div class="cost-divider"></div>
-          <div><small>估計費用</small><strong id="totalCost">依帳單為準</strong><span id="totalCostUsd"></span></div>
+        <div class="cost-row" aria-label="本次費用">
+          <div class="cost-card">
+            <small>生圖費用</small>
+            <strong id="imageCost">依帳單為準</strong>
+            <span id="imageCostUsd"></span>
+            <span id="imageUsage"></span>
+          </div>
+          <div class="cost-card">
+            <small>影片費用</small>
+            <strong id="videoCost">未啟用</strong>
+            <span id="videoCostUsd"></span>
+            <span id="videoUsage"></span>
+          </div>
         </div>
       </div>
       <div class="result-actions"><button class="primary-button"
@@ -179,7 +187,7 @@
   </main>
   <div class="toast"
     id="toast"></div>
-  <script src="app.js?v=31"
+  <script src="app.js?v=33"
     type="module"></script>
 </body>
 

@@ -776,35 +776,37 @@ button {
 .result-media-status { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .result-image-wrap video:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
-.cost-card {
-  display: flex;
-  align-items: center;
+.cost-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 12px;
-  padding: 10px 0;
+}
+
+.cost-card {
+  min-width: 0;
+  padding: 12px 6px;
+  text-align: center;
   border: 1px solid rgba(70, 62, 52, 0.18);
   border-radius: 6px;
   background: rgba(255,255,255,0.38);
 }
 
-.cost-card > div:not(.cost-divider) { flex: 1; }
-
 .cost-card small,
 .cost-card span {
   display: block;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 1.6;
 }
+
+.cost-card span { min-height: 1.6em; }
 
 .cost-card strong {
   display: block;
-  margin: 2px 0;
-  font-size: 17px;
-}
-
-.cost-divider {
-  width: 1px;
-  height: 30px;
-  background: var(--line);
+  margin: 3px 0;
+  font-size: clamp(16px, 4.5vw, 20px);
+  line-height: 1.4;
 }
 
 .result-actions { padding-top: 14px; }
