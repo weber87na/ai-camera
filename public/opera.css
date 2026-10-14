@@ -1,0 +1,28 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+#operaStage { position: absolute; inset: 0; overflow: hidden; outline: none; background: #000; touch-action: none; }
+#operaStage canvas { display: block; width: 100%; height: 100%; }
+.prop-controls { position: absolute; inset: 0; pointer-events: none; }
+.prop-control { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); background: none; border: 0; pointer-events: none; }
+.icon-button { position: absolute; display: grid; place-items: center; width: 48px; height: 48px; padding: 12px; border: 1px solid #e3bd7040; border-radius: 50%; color: #f0d69c; background: #07050288; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.icon-button svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button:hover { background: #332510c9; border-color: #e3bd7090; }
+.icon-button:focus-visible { outline: 2px solid #f0d69c; outline-offset: 5px; }
+.refresh-pool { right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
+.stage-feedback { position: absolute; left: 50%; bottom: 7%; width: 24px; height: 24px; margin-left: -12px; border: 1px solid #cf9c3b33; border-top-color: #e9bf6d; border-radius: 50%; animation: wait-turn 1s linear infinite; pointer-events: none; }
+.winner-panel { position: absolute; inset: 0; z-index: 10; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; gap: 16px; padding: max(24px, env(safe-area-inset-top)) 7% max(24px, env(safe-area-inset-bottom)); background: #000; }
+.winner-art { position: relative; width: 100%; min-height: 0; overflow: hidden; }
+.winner-art img, .winner-art video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#winnerName { max-width: 100%; max-height: 30dvh; overflow-y: auto; margin: 0; padding-left: .12em; color: #f5dfb1; text-align: center; overflow-wrap: anywhere; font: 400 clamp(30px, 4.2vw, 66px)/1.45 "DFKai-SB", "BiauKai", "KaiTi", "PMingLiU", serif; letter-spacing: .12em; text-shadow: 0 0 24px #d39c3c44; }
+.close-winner { top: max(20px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right)); }
+.play-winner { top: 44%; left: 50%; width: 68px; height: 68px; padding: 20px; transform: translate(-50%, -50%); background: #080603b8; }
+.opera-no-webgl .prop-controls { display: flex; align-items: center; justify-content: center; gap: 3vw; }
+.opera-no-webgl .prop-control { position: relative; clip-path: none; width: 20vw; height: 30vh; border: 1px solid #cba45f44; border-radius: 50%; pointer-events: auto; color: #d9b46f; }
+.opera-no-webgl .prop-control svg { width: 75%; height: 75%; fill: none; stroke: currentColor; stroke-width: 1.2; }
+@keyframes wait-turn { to { transform: rotate(360deg); } }
+@media (max-width: 650px) { .winner-panel { padding: 18px 4% 28px; gap: 12px; } #winnerName { font-size: 34px; } .close-winner { width: 44px; height: 44px; top: 12px; right: 12px; } }
+@media (max-height: 450px) { .winner-panel { padding: 12px 6%; gap: 6px; } #winnerName { font-size: 28px; } }
+@media (prefers-reduced-motion: reduce) { .stage-feedback { animation: none; } }

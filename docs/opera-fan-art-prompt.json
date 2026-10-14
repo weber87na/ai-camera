@@ -1,0 +1,17 @@
+{
+  "asset": "public/images/opera-fan-art-v1.png",
+  "width": 1774,
+  "height": 887,
+  "aspect_ratio": "2:1",
+  "format": "RGB PNG",
+  "bytes": 2890601,
+  "visual_validation": "Inspected generated output: full rectangular ivory xuan paper, fine subtle paper grain, pale gold bamboo on the left, vermilion plum blossoms and ink branches rising from lower center to upper right; no people, fan boundary, ribs, folds, text, stamps, or watermark.",
+  "mode": "built-in image_gen",
+  "intent": "generate with style and motif reference",
+  "tool": "image_gen__imagegen",
+  "transparent_background": false,
+  "reference_image": "C:\\Users\\WEBERC~1\\AppData\\Local\\Temp\\codex-clipboard-9138fc29-7189-4d23-a2b2-1e015945fc11.png",
+  "reference_role": "Style and motif reference only; the artwork painted on the actor's fan",
+  "generated_source": "C:\\Users\\weberchang\\.codex\\generated_images\\01a1393f-bb1a-7b83-a17b-de836947418c\\exec-7d2c0b23-f0f1-45ce-afcf-80c001d6af8a.png",
+  "prompt": "Use case: stylized-concept\nAsset type: high-resolution albedo artwork texture for the paper surface of a large Three.js folding fan on a theatrical display.\nInput image 1 is a STYLE AND MOTIF REFERENCE ONLY: study the cream paper, delicate red plum blossoms, ink branches, and pale gold bamboo motifs on the fan held by the actor. Do not depict the actor, costume, stage, or a physical fan.\nPrimary request: create a new, exquisite traditional Chinese hand-painted artwork on one complete flat rectangular sheet of warm ivory xuan paper. Landscape composition, approximately 2:1 aspect ratio, high resolution suitable for a large exhibition screen. The image must be a full-bleed rectangle of paper, viewed perfectly straight-on, flat and evenly lit, with every corner filled by the same paper ground.\nComposition: in the right half, finely observed charcoal-black and warm dark-brown plum branches rise organically from the lower center toward the upper right, with graceful smaller twigs carrying clusters of vermilion and muted cinnabar red plum blossoms. Delicate petals, tiny golden stamens, sparse unopened buds, nuanced ink brush edges. In the left half, refined pale antique-gold bamboo stems and slender leaves, quiet airy movement and generous ivory negative space. Keep the painting elegant and restrained like the fan surface in the reference, with the red plum being the visual focus, never a dense floral wallpaper.\nMaterials: subtle fine xuan paper fibers and gentle handmade paper variation across the entire image, richly detailed but understated. Refined traditional gongbi and expressive ink-wash brushwork, museum-quality hand-painted finish. Ivory, pale gold, dark ink, warm brown, and vermilion red palette.\nCritical constraints: only the flat rectangular paper artwork texture. NO fan silhouette, NO curved or semicircular canvas boundary, NO fan ribs, NO wooden parts, NO folding lines or creases, NO dimensional pleats, NO hard shadows or baked lighting, NO background outside the paper, NO border, NO persons, NO calligraphy, NO letters, NO numbers, NO seal stamps, NO watermark. Three.js will provide the fan geometry and lighting separately."
+}

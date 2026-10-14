@@ -194,6 +194,25 @@ const queue     = [];
 let activeJobs  = 0;
 
 app.disable("x-powered-by");
+// Gate the page before express.static, which also serves .html URLs and decodes
+// URL-encoded paths. Normalize Windows separators/case, NTFS stream suffixes,
+// and trailing dots/spaces too, so aliases cannot expose it in standard mode.
+app.use((req, res, next) => {
+  let pathname;
+  try {
+    pathname = path.posix.normalize(decodeURIComponent(req.path).replaceAll("\\", "/"))
+      .split("/").map(segment => segment.split(":")[0].replace(/[ .]+$/, "")).join("/")
+      .replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return next();
+  }
+
+  if (pathname !== "/opera" && pathname !== "/opera.html") return next();
+  res.setHeader("Cache-Control", "no-store");
+  if (photoMode !== "opera") return res.sendStatus(404);
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  return res.sendFile(path.resolve("public", "opera.html"));
+});
 app.use(express.static("public", { maxAge: 0, etag: true, extensions: ["html"] }));
 
 // Three.js browser build for WebGL experiences such as painter.

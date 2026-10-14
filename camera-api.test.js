@@ -21,6 +21,13 @@ const expectedProps = {
   chou: { propId: "dessert-grid", propName: "甜點九宮格" }
 };
 const jpegBase64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwC/AB//2Q==";
+const operaPagePaths = [
+  "/opera", "/opera/", "/opera.html", "/OPERA", "/OPERA.HTML",
+  "/%6Fpera", "/opera%2F", "/opera%2Ehtml", "/%6fpera%2ehtml",
+  "//opera.html", "/%5Copera.html", "/nested%2F..%2Fopera.html",
+  "/opera.html.", "/opera.html%20", "/opera.html?from=lottery",
+  "/opera.html::$DATA", "/opera.html%3A%3A%24DATA", "/OPERA.HTML%3a%3a%24data"
+];
 
 async function availablePort() {
   const listener = net.createServer();
@@ -31,7 +38,7 @@ async function availablePort() {
   return port;
 }
 
-async function startServer(t, mode, openaiUrl) {
+async function startServer(t, mode, openaiUrl, { videoEnabled = false } = {}) {
   if (openaiUrl) {
     const url = new URL(openaiUrl);
     assert.equal(url.protocol, "http:");
@@ -48,7 +55,7 @@ async function startServer(t, mode, openaiUrl) {
       PORT: String(port),
       STORAGE_DIR: storage,
       PHOTO_MODE: mode,
-      VIDEO_ENABLED: "false",
+      VIDEO_ENABLED: String(videoEnabled),
       VIDEO_MODEL: "grok-imagine-video-1.5-lite",
       VIDEO_DURATION: "3",
       VIDEO_RESOLUTION: "720p",
@@ -56,6 +63,7 @@ async function startServer(t, mode, openaiUrl) {
       VIDEO_TIMEOUT_MS: "600000",
       VIDEO_POLL_INTERVAL_MS: "5000",
       XAI_BASE_URL: "https://api.x.ai/v1",
+      XAI_API_KEY: "",
       OPENAI_API_KEY: openaiUrl ? "local-test-key" : "",
       OPENAI_BASE_URL: openaiUrl || "http://127.0.0.1:1/v1",
       OPENAI_ORG_ID: "",
@@ -260,6 +268,80 @@ test("Chinese PHOTO_MODE alias enables the same opera role contract", { timeout:
   const config = await getPublicConfig(baseUrl, "opera");
   assert.deepEqual(config.roles.map(role => role.id), expectedRoles);
   await assertAcceptedWithoutApiCall(baseUrl, [["style", "opera"], ["role", "dan"]], "opera", "opera", "dan");
+});
+
+test("opera lottery page is inaccessible in standard and default modes, including static-file aliases", { timeout: 20000 }, async t => {
+  for (const mode of ["standard", ""]) {
+    const { baseUrl } = await startServer(t, mode);
+    for (const pathname of operaPagePaths) {
+      const response = await fetch(`${baseUrl}${pathname}`, { redirect: "manual" });
+      assert.equal(response.status, 404, `${JSON.stringify(mode)} exposed ${pathname}`);
+      assert.match(response.headers.get("cache-control") || "", /no-store/i);
+      assert.doesNotMatch(await response.text(), /<html/i);
+    }
+    for (const pathname of ["/%6fpera.html", "/opera.html::$DATA", "/opera.html%3A%3A%24DATA"]) {
+      const head = await fetch(`${baseUrl}${pathname}`, { method: "HEAD" });
+      assert.equal(head.status, 404, `${JSON.stringify(mode)} exposed HEAD ${pathname}`);
+    }
+    assert.equal((await fetch(`${baseUrl}/`)).status, 200);
+    assert.equal((await fetch(`${baseUrl}/gallery`)).status, 200);
+  }
+});
+
+test("opera lottery page is served only in opera mode and its Chinese alias", { timeout: 20000 }, async t => {
+  const expectedPage = await fs.readFile(path.join(projectRoot, "public", "opera.html"), "utf8");
+  for (const mode of ["opera", "歌仔戲"]) {
+    const { baseUrl } = await startServer(t, mode);
+    for (const pathname of operaPagePaths) {
+      const response = await fetch(`${baseUrl}${pathname}`, { redirect: "manual" });
+      assert.equal(response.status, 200, `${mode} did not serve ${pathname}`);
+      assert.match(response.headers.get("content-type") || "", /text\/html/i);
+      assert.match(response.headers.get("cache-control") || "", /no-store/i);
+      assert.equal(await response.text(), expectedPage);
+    }
+    for (const pathname of ["/%6fpera.html", "/opera.html::$DATA", "/opera.html%3A%3A%24DATA"]) {
+      const head = await fetch(`${baseUrl}${pathname}`, { method: "HEAD" });
+      assert.equal(head.status, 200, `${mode} did not serve HEAD ${pathname}`);
+      assert.equal(await head.text(), "");
+    }
+  }
+});
+
+test("opera photo API preserves names and exposes only completed paired videos when enabled", { timeout: 20000 }, async t => {
+  const date = "2026-10-14";
+  const completePhoto = "1791907200000-1234abcd-完成參與者.jpg";
+  const pendingPhoto = "1791907200001-5678abcd-等待參與者.jpg";
+  for (const videoEnabled of [false, true]) {
+    const { baseUrl, storage } = await startServer(t, "opera", undefined, { videoEnabled });
+    const dateDir = path.join(storage, date);
+    await fs.mkdir(dateDir);
+    await Promise.all([
+      fs.writeFile(path.join(dateDir, completePhoto), png),
+      fs.writeFile(path.join(dateDir, pendingPhoto), png),
+      fs.writeFile(path.join(dateDir, completePhoto.replace(/\.jpg$/, ".mp4")), "finished-video-fixture"),
+      fs.writeFile(path.join(dateDir, pendingPhoto.replace(/\.jpg$/, ".mp4.tmp")), "unfinished-video-fixture"),
+      fs.writeFile(path.join(dateDir, "orphan.mp4"), "video-without-photo"),
+      fs.writeFile(path.join(storage, "results.jsonl"), JSON.stringify({ file: `${date}/${completePhoto}`, name: "中獎人 全名" }) + "\n")
+    ]);
+
+    const config = await (await fetch(`${baseUrl}/api/config`)).json();
+    assert.equal(config.mode, "opera");
+    assert.equal(config.video.enabled, videoEnabled);
+    const response = await fetch(`${baseUrl}/api/photos/${date}`);
+    assert.equal(response.status, 200);
+    const listing = await response.json();
+    assert.equal(listing.total, 2);
+    assert.equal(listing.photos.length, 2);
+    assert.equal(listing.photos[0].name, "中獎人 全名");
+    assert.equal(listing.photos[1].name, "等待參與者");
+    assert.deepEqual(listing.photos.map(photo => photo.url), listing.images);
+    assert.equal(Object.hasOwn(listing.photos[1], "video"), false);
+    if (videoEnabled) {
+      assert.equal(listing.photos[0].video, `${baseUrl}/storage/${date}/${encodeURIComponent(completePhoto.replace(/\.jpg$/, ".mp4"))}`);
+    } else {
+      assert.ok(listing.photos.every(photo => !Object.hasOwn(photo, "video")));
+    }
+  }
 });
 
 test("each role sends its fixed prop prompt and persists server-selected props without duplicate generation", { timeout: 20000 }, async t => {

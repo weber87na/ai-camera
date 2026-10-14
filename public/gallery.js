@@ -42,6 +42,7 @@ async function loadGalleryMode() {
         galleryMode = config.mode;
         galleryVideo = config.video || { enabled: false };
         const opera = galleryMode === 'opera';
+        document.getElementById('galleryLotteryLink').hidden = !opera;
         document.body.classList.toggle('opera-mode', opera);
         if (opera) startOperaPetals();
         document.getElementById('galleryTitle').textContent = opera ? '歌仔戲藝廊' : '映像間';

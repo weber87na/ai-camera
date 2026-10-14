@@ -351,3 +351,5 @@ body.opera-mode {
 @media (prefers-reduced-motion: reduce) {
     .opera-mode *, .opera-mode *::before, .opera-mode *::after { animation: none !important; transition: none !important; }
 }
+#galleryLotteryLink { margin-left: auto; color: #dbc299; font-size: 13px; letter-spacing: .08em; text-decoration: none; padding: 12px; }
+#galleryLotteryLink[hidden] { display: none; }

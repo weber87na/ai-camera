@@ -1,0 +1,75 @@
+{
+  "source_repository": "https://github.com/weber87na/riddle",
+  "source_directory": "assets/yellow-leaves",
+  "implementation_source": [
+    "https://github.com/weber87na/riddle/blob/main/main.js",
+    "https://github.com/weber87na/riddle/blob/main/styles.css"
+  ],
+  "note": "Original transparent PNG assets copied byte-for-byte. The atmosphere module reproduces the original screen-space CSS keyframe values while preserving the opera stage haze.",
+  "files": [
+    {
+      "name": "yellow-leaf-01.png",
+      "git_blob_sha": "2cde513ff80dcc61058d3fa302cba3186a37ba81"
+    },
+    {
+      "name": "yellow-leaf-02.png",
+      "git_blob_sha": "fe61001738256279a4368acae3d06863d49491bf"
+    },
+    {
+      "name": "yellow-leaf-03.png",
+      "git_blob_sha": "159c416cb5022e5ab68eae8aaec46db19fafc592"
+    },
+    {
+      "name": "yellow-leaf-04.png",
+      "git_blob_sha": "5265d1298b36d1f26cf51eafd55b6f1b5d4bf6fc"
+    },
+    {
+      "name": "yellow-leaf-05.png",
+      "git_blob_sha": "fa637acf62f1fc450d5ca87b4238cc2aa9102ff9"
+    },
+    {
+      "name": "yellow-leaf-06.png",
+      "git_blob_sha": "6f4097df3550bed3e0b54aea6a61825a2765bdae"
+    },
+    {
+      "name": "yellow-leaf-07.png",
+      "git_blob_sha": "53abaa757a0291fc09cfa572b2115a183c08d3c4"
+    },
+    {
+      "name": "yellow-leaf-08.png",
+      "git_blob_sha": "be271fbf0472de8e3319a48bcbf2eb5dcb0e2d94"
+    },
+    {
+      "name": "yellow-leaf-09.png",
+      "git_blob_sha": "c9e90e2cf539ba610469fd9e7ec1287636864a27"
+    },
+    {
+      "name": "yellow-leaf-10.png",
+      "git_blob_sha": "75448f1adbc957b0bbe2a544e91aa6158b4e7a26"
+    },
+    {
+      "name": "yellow-leaf-11.png",
+      "git_blob_sha": "dfe4d050501aba92f15222393b96fae248a7543e"
+    },
+    {
+      "name": "yellow-leaf-12.png",
+      "git_blob_sha": "e46e3cb0641f9b1c0a51c85e9e7ffb44800e288c"
+    },
+    {
+      "name": "yellow-leaf-13.png",
+      "git_blob_sha": "5d234331ce2192df84af4dff1be1e6b7aec0e58a"
+    },
+    {
+      "name": "yellow-leaf-14.png",
+      "git_blob_sha": "ced1fd8a445b18f7e972e3c62893506913383bd9"
+    },
+    {
+      "name": "yellow-leaf-15.png",
+      "git_blob_sha": "5d710e49f16431f7e045006aaaa6a2c88b8d06d5"
+    },
+    {
+      "name": "yellow-leaf-16.png",
+      "git_blob_sha": "5c8eb1f2a6055a0b0d810747b7dcb2822ff8d61d"
+    }
+  ]
+}

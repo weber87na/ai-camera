@@ -36,12 +36,14 @@ async function loadAppConfig() {
   $('#configRetryButton').hidden = true;
   $('#standardHome').hidden = true;
   $('#operaHome').hidden = true;
+  $('#operaLotteryLink').hidden = true;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const config = await readJson(await fetch('/api/config', { cache: 'no-store', signal: controller.signal }));
     if (!['standard', 'opera'].includes(config.mode)) throw new Error('拍照模式設定無效，請重新載入');
     document.body.classList.toggle('opera-mode', config.mode === 'opera');
+    $('#operaLotteryLink').hidden = config.mode !== 'opera';
     if (config.mode === 'opera') {
       renderOperaMode($('#operaHome'), config.roles, selection => {
         selectedStyle = selection;
@@ -66,6 +68,7 @@ async function loadAppConfig() {
   } catch (error) {
     appConfig = null;
     selectedStyle = null;
+    $('#operaLotteryLink').hidden = true;
     $('#standardHome').hidden = true;
     $('#operaHome').hidden = true;
     $('#configMessage').textContent = error.name === 'AbortError'

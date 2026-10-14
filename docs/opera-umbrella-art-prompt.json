@@ -1,0 +1,20 @@
+{
+  "asset": "public/images/opera-umbrella-art-v1.png",
+  "mode": "built-in",
+  "tool": "image_gen.imagegen",
+  "intent": "generate-with-style-reference",
+  "useCase": "stylized-concept",
+  "referenceImage": "C:\\Users\\WEBERC~1\\AppData\\Local\\Temp\\codex-clipboard-610747f9-7f5d-4499-b452-198bee9716ff.png",
+  "sourceImage": "C:\\Users\\weberchang\\.codex\\generated_images\\01a13940-c9d1-70e0-bbc1-72b3e74d54f6\\exec-29be0735-fbec-4d0d-bf79-dc7629b6cba1.png",
+  "transparentBackground": false,
+  "output": {
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "bytes": 3306279,
+    "resized": false
+  },
+  "visualInspection": "Warm honey oil-paper with detailed red plum blossom branches rising from lower-left toward the upper area; center and right side retain clear paper. No people, physical umbrella, ribs, circular frame, text, seals or watermark. Native square output preserved without artificial upscaling.",
+  "intendedUse": "Flat square oil-paper and red plum blossom albedo for a Three.js umbrella canopy. Umbrella geometry, ribs and lighting are supplied by Three.js.",
+  "prompt": "Use case: stylized-concept\nAsset type: production albedo / base-color raster texture for the paper canopy of a Three.js traditional opera umbrella.\nInput image 1 is a STYLE REFERENCE ONLY: study the warm golden oil-paper and refined red plum-blossom painting on the umbrella in the supplied opera portrait. Do not reproduce the portrait, actual umbrella, ribs, folds, handle, stage, or lighting.\nPrimary request: create a completely flat, face-on, full-bleed square 1:1 artwork, ideally 2048 by 2048 or the highest available square resolution. The entire square must be filled with softly warm pale honey and ivory-gold oil-paper, with exquisite subtle natural paper fibers and very slight organic pigment variation.\nSubject and painting: traditional meticulous Chinese gongbi red plum blossom artwork, delicate deep burgundy and vermilion petals, fine pale-gold stamens, natural slender dark umber branches and tiny buds. The principal branching growth begins in the lower-left quarter, travels upward along the left side, then bends elegantly toward the upper portion, forming a loose asymmetrical partial wreath. Alternate richly detailed small blossom clusters with graceful breathing room. A few delicate branch tips can reach the upper-right portion, while the right half remains calmer. Preserve the reference's elegant warm-gold and red-plum aesthetic with exceptional fine botanical detail.\nComposition: the design will be cropped by circular umbrella geometry, so arrange the principal artwork inside the inscribed circle of the square, with the center approximately 25 percent of the image width clear of branches and flowers for the umbrella hub. Keep the outermost edge quietly spacious. The paper background continues seamlessly across all four square corners; do not draw a circle or circular border. The composition is intentionally asymmetrical and airy.\nLighting and material: unlit flat diffuse albedo, uniform neutral illumination, visible delicate real oil-paper fiber texture and fine hand-painted pigment marks. No baked shadows, highlights, vignette, perspective, depth, radial shading, or directional lighting.\nAvoid: people, faces, costumes, physical umbrella product, umbrella frame or ribs, spokes, fold lines, radial lines, seams, crease geometry, handle, hub, 3D render, mockup, isolated object, circular cutout, circular frame, border, opaque dark background, transparent background, text, signature, calligraphy, seals, logos, watermark. Deliver only the finished square decorative paper texture."
+}

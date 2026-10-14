@@ -10,6 +10,7 @@
 | --- | --- |
 | [AI 風格照相館](http://localhost:3000/) | 選擇風格、拍照並生成 AI 肖像 |
 | [作品藝廊](http://localhost:3000/gallery) | 瀏覽當日生成作品 |
+| [歌仔戲抽獎](http://localhost:3000/opera) | 紙扇、紙傘、鎖鏈與九宮格 3D 抽獎舞台，僅歌仔戲模式可用 |
 | [顏料吸收](http://localhost:3000/painter) | 顏料吸收動畫與中獎圖片展示 |
 | [中華一番／小當家魔法](http://localhost:3000/chinese-magic) | 3D 魔法展示與抽選體驗 |
 | [辛普森魔法抽卡](http://localhost:3000/simpsons-magic) | 辛普森主題 3D 抽卡體驗 |
@@ -83,6 +84,19 @@ PHOTO_MODE=opera
 首頁使用單張大照片輪播，左右滑動、拖曳或按方向鍵切換角色，照片下方只顯示「生、旦、淨、丑」單字。目前顯示的角色即為選擇，預設為「生」。四張直式角色預覽（`public/images/opera-*-portrait.png`）及專案中的透明道具素材皆由內建 imagegen 生成，完整提示詞保存在 [`docs/opera-image-prompts.json`](docs/opera-image-prompts.json)。這些是選角示意；拍照生成仍使用參與者上傳照片及 `opera.js` 的角色提示詞。
 
 `GET /api/config` 提供目前模式、可選角色與固定道具，不含提示詞或金鑰。`POST /api/generate` 在歌仔戲模式須傳 `style=opera` 及 `role=sheng|dan|jing|chou`；後端會拒絕不符合目前模式的選項。工作狀態與 `storage/results.jsonl` 會記錄 `mode`、`style`、`role`、`propId` 及 `propName`，方便後續對應禮品。道具由後端依角色決定，不能由前端任意更換。角色設定與提示詞在 `opera.js`，模式切換與驗證在 `camera-mode.js`。
+
+### 歌仔戲抽獎頁
+
+設定 `PHOTO_MODE=opera` 並重新啟動後，開啟 [`/opera`](http://localhost:3000/opera)。`PHOTO_MODE=歌仔戲` 也可使用；其他模式下，`/opera`、`/opera/` 與 `/opera.html` 均由伺服器回傳 404。
+
+Three.js 舞台參考 riddle 的黑色展台：紙扇、紙傘、鎖鏈與九宮格繞成有前後深度的環形，前方道具放大，搭配暖金霧光與 riddle 原版透明落葉素材及飄動效果。左右拖曳、滾輪或方向鍵可環繞切換，點選任一道具或按 Enter／空白鍵即可抽獎。頁面沒有可見的標題、道具標籤、說明與名單數字，結果只保留中獎姓名；播放與關閉操作使用無文字圖示，狀態訊息僅供輔助閱讀器。四個道具共用台北時間當日的作品池，不依拍照時所選角色分組；每次獨立隨機抽選，同一位參與者可能重複中獎。
+
+扇面與傘面使用內建 imagegen 依提供的戲曲人物參考圖繪製的高解析圖案，保留 Three.js 實際摺痕、扇骨及傘內竹肋。貼圖為 `public/images/opera-fan-art-v1.png`、`public/images/opera-umbrella-art-v1.png`，完整提示詞見 `docs/opera-fan-art-prompt.json`、`docs/opera-umbrella-art-prompt.json`。扇骨、傘架、傘柄及空的九宮格木箱使用有方向性的木紋與竹紋；鎖鏈由 29 個交錯金屬環組成。木頭與金屬材質皆包含色彩、凹凸與粗糙度貼圖，由 `public/opera-materials.js` 管理。自然木紋 `public/images/opera-wood-grain-v1.png` 由內建 imagegen 生成，提示詞見 `docs/opera-wood-grain-prompt.json`；原版落葉素材及來源見 `public/images/opera-yellow-leaves/SOURCE.json`。
+
+- `VIDEO_ENABLED=true`：僅抽選已完成且有配對 MP4 的參與者，播放中獎人的影片；生成中、失敗或僅有照片的作品不會加入影片抽獎。
+- `VIDEO_ENABLED=false`：從當日照片抽選，顯示中獎人的圖片。
+
+抽獎沿用 `GET /api/config` 的公開設定及 `GET /api/photos/:date` 的照片、影片與姓名資料；沒有符合條件的作品時提供無文字重新整理圖示。影片失敗時顯示同一位中獎人的照片，不重新抽選。
 
 ## 照片轉影片（選用）
 
