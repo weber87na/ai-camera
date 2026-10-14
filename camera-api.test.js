@@ -309,7 +309,7 @@ test("opera lottery page is served only in opera mode and its Chinese alias", { 
 
 test("opera photo API preserves names and exposes only completed paired videos when enabled", { timeout: 20000 }, async t => {
   const date = "2026-10-14";
-  const completePhoto = "1791907200000-1234abcd-完成參與者.jpg";
+  const completePhoto = "1791907200000-1234abcd-完成 參與者.jpg";
   const pendingPhoto = "1791907200001-5678abcd-等待參與者.jpg";
   for (const videoEnabled of [false, true]) {
     const { baseUrl, storage } = await startServer(t, "opera", undefined, { videoEnabled });
@@ -335,11 +335,39 @@ test("opera photo API preserves names and exposes only completed paired videos w
     assert.equal(listing.photos[0].name, "中獎人 全名");
     assert.equal(listing.photos[1].name, "等待參與者");
     assert.deepEqual(listing.photos.map(photo => photo.url), listing.images);
+    assert.deepEqual(listing.images, [completePhoto, pendingPhoto].map(file => `/storage/${date}/${encodeURIComponent(file)}`));
     assert.equal(Object.hasOwn(listing.photos[1], "video"), false);
     if (videoEnabled) {
-      assert.equal(listing.photos[0].video, `${baseUrl}/storage/${date}/${encodeURIComponent(completePhoto.replace(/\.jpg$/, ".mp4"))}`);
+      assert.equal(listing.photos[0].video, `/storage/${date}/${encodeURIComponent(completePhoto.replace(/\.jpg$/, ".mp4"))}`);
     } else {
       assert.ok(listing.photos.every(photo => !Object.hasOwn(photo, "video")));
+    }
+
+    // Azure terminates HTTPS before forwarding HTTP to Node. Media URLs must
+    // use the browser's origin, independent of internal or forwarded hosts.
+    const forwardedResponse = await fetch(`${baseUrl}/api/photos/${date}`, {
+      headers: {
+        Host: "internal-app:8080",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-Host": "camera.example.com"
+      }
+    });
+    assert.equal(forwardedResponse.status, 200);
+    assert.deepEqual(await forwardedResponse.json(), listing);
+    const page = new URL("https://camera.example.com/opera");
+    for (const mediaPath of [...listing.images, ...listing.photos.flatMap(photo => photo.video ? [photo.video] : [])]) {
+      assert.match(mediaPath, /^\/storage\//);
+      const resolved = new URL(mediaPath, page);
+      assert.equal(resolved.protocol, "https:");
+      assert.equal(resolved.origin, page.origin);
+    }
+    const storedImage = await fetch(new URL(listing.photos[0].url, baseUrl));
+    assert.equal(storedImage.status, 200);
+    assert.deepEqual(Buffer.from(await storedImage.arrayBuffer()), png);
+    if (videoEnabled) {
+      const storedVideo = await fetch(new URL(listing.photos[0].video, baseUrl));
+      assert.equal(storedVideo.status, 200);
+      assert.equal(await storedVideo.text(), "finished-video-fixture");
     }
   }
 });

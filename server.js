@@ -423,8 +423,10 @@ app.get("/api/photos/:date", (req, res) => {
     // 資料夾不存在，回傳空陣列
   }
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const images = files.map(f => `${baseUrl}/storage/${date}/${encodeURIComponent(f)}`);
+  // Azure terminates HTTPS before forwarding HTTP to this app. Keep media URLs
+  // same-origin so the browser preserves HTTPS regardless of proxy headers.
+  const storagePath = `/storage/${date}/`;
+  const images = files.map(f => `${storagePath}${encodeURIComponent(f)}`);
   const namesByFile = readStoredNamesByFile();
   const photos = files.map((file, index) => {
     const videoFilename = `${path.parse(file).name}.mp4`;
@@ -432,7 +434,7 @@ app.get("/api/photos/:date", (req, res) => {
       url: images[index],
       name: findStoredPhotoName(date, file, namesByFile),
       ...(videoConfig.enabled && storedFiles.has(videoFilename)
-        ? { video: `${baseUrl}/storage/${date}/${encodeURIComponent(videoFilename)}` }
+        ? { video: `${storagePath}${encodeURIComponent(videoFilename)}` }
         : {})
     };
   });

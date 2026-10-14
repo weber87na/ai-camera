@@ -173,7 +173,10 @@ async function photos(baseUrl, record) {
   const date = record.file.replaceAll("\\", "/").split("/")[0];
   const response = await fetch(`${baseUrl}/api/photos/${date}`);
   assert.equal(response.status, 200);
-  return response.json();
+  const listing = await response.json();
+  assert.ok(listing.images.every(url => url.startsWith("/storage/")));
+  assert.ok(listing.photos.every(photo => photo.url.startsWith("/storage/") && (!photo.video || photo.video.startsWith("/storage/"))));
+  return listing;
 }
 
 function assertStillImage(job) {
@@ -328,6 +331,18 @@ test("video uses the generated portrait, preserves queue bounds and deduplicatio
   assert.equal(gallery.images.length, 2, "MP4s are not lottery image candidates");
   assert.ok(gallery.images.every(url => url.endsWith(".jpg")));
   assert.ok(gallery.photos.every(photo => gallery.images.includes(photo.url) && photo.video?.endsWith(".mp4")));
+  const expectedImagePath = `/storage/${record.file.replaceAll("\\", "/").split("/").map(encodeURIComponent).join("/")}`;
+  const galleryPhoto = gallery.photos.find(photo => photo.url === expectedImagePath);
+  assert.ok(galleryPhoto, "the encoded Chinese filename must match the persisted photo");
+  assert.equal(galleryPhoto.video, expectedImagePath.replace(/\.jpg$/, ".mp4"));
+  const imageResponse = await fetch(new URL(galleryPhoto.url, baseUrl));
+  assert.equal(imageResponse.status, 200);
+  assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()), generatedImage);
+  const rangeResponse = await fetch(new URL(galleryPhoto.video, baseUrl), { headers: { Range: "bytes=0-11" } });
+  assert.equal(rangeResponse.status, 206);
+  assert.equal(rangeResponse.headers.get("content-range"), `bytes 0-11/${mp4.length}`);
+  assert.match(rangeResponse.headers.get("content-type") || "", /^video\/mp4/);
+  assert.deepEqual(Buffer.from(await rangeResponse.arrayBuffer()), mp4.subarray(0, 12));
 
   const completedReplay = await submit(baseUrl, requestId);
   assert.equal(completedReplay.body.jobId, job.jobId);
@@ -340,7 +355,7 @@ test("video uses the generated portrait, preserves queue bounds and deduplicatio
   const restored = await photos(restarted.baseUrl, record);
   assert.equal(restored.total, 2);
   assert.ok(restored.photos.every(photo => photo.video?.endsWith(".mp4")));
-  assert.deepEqual(Buffer.from(await (await fetch(restored.photos[0].video)).arrayBuffer()), mp4);
+  assert.deepEqual(Buffer.from(await (await fetch(new URL(restored.photos[0].video, restarted.baseUrl))).arrayBuffer()), mp4);
   // Pairing is based on durable image/MP4 files, not in-memory job data or log rows.
   await fs.writeFile(path.join(storage, "results.jsonl"), "");
   const withoutLog = await photos(restarted.baseUrl, record);

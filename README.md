@@ -121,6 +121,8 @@ VIDEO_POLL_INTERVAL_MS=5000
 
 JPEG 與 MP4 保存在 `storage/YYYY-MM-DD/`，使用相同檔名主體；影片不依賴會過期的 xAI 下載網址。`results.jsonl` 另存 `videoFile`、`videoMetadata` 與影像／影片費用。`GET /api/photos/:date` 保留既有 `images` 圖片陣列與抽獎候選，僅在啟用功能且有配對影片時，在 `photos` 項目中加入 `video`。示意圖不會送入影片 API 或抽獎資料。
 
+照片 API 的 `images`、`photos[].url` 與 `photos[].video` 均回傳 `/storage/...` 根相對網址，讓媒體沿用目前網站的來源與 HTTPS，避免 Azure 在負載平衡器終止 TLS 後，應用程式依內部 HTTP 連線產生混合內容網址。非瀏覽器 API 使用者需以網站網址為基準解析這些路徑。
+
 結果頁的「生圖費用」與「影片費用」並排在同一列，分別顯示新台幣、美元與圖片 Token／影片秒數。影片模式分別讀取 `imageCost`、`videoCost`；純圖片模式使用 `cost` 作為生圖費用，影片欄顯示「未啟用」。哪一項缺少金額，就僅在該欄顯示「依帳單為準」，不將合計費用當成生圖費用，也不將未知費用顯示成零。模擬 API 測試不會呼叫正式服務或產生生成費用。
 
 ## 世紀廳 LED 顯示
