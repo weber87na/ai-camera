@@ -17,14 +17,23 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;600;700;900&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet"
-    href="style.css?v=27" />
+    href="style.css?v=29" />
+  <link rel="stylesheet"
+    href="opera-mode.css?v=9" />
+  <link rel="stylesheet"
+    href="opera-petals.css?v=1" />
 </head>
 
 <body>
   <main class="app-shell">
     <section class="screen screen-home is-active"
       id="homeScreen">
-      <div class="polaroid-shell">
+      <div class="config-status" id="configStatus" role="status" aria-live="polite">
+        <p id="configMessage">正在準備拍照模式…</p>
+        <button class="secondary-button" id="configRetryButton" type="button" hidden>重新載入</button>
+      </div>
+      <div id="operaHome" class="opera-home" hidden></div>
+      <div class="polaroid-shell" id="standardHome" hidden>
         <div class="polaroid-photo">
           <div class="style-carousel"
             id="styleGrid"
@@ -58,7 +67,7 @@
           </label>
           <button class="primary-button"
             id="startButton"
-            type="submit">開始拍照</button>
+            type="submit" disabled>開始拍照</button>
         </form>
         <a class="gallery-button"
           href="gallery.html">來去瞧瞧</a>
@@ -134,7 +143,7 @@
         <div class="processing-steps">
           <div class="done"><span>✓</span>已接收照片</div>
           <div id="queueStep"
-            class="active"><span>●</span><b id="queueMessage">正在安排生成工作</b></div>
+            class="active"><span>●</span><b id="queueMessage" role="status" aria-live="polite">正在安排生成工作</b></div>
           <div id="generateStep"><span>○</span>正在轉換為 <b id="processingStyleName"></b></div>
           <div><span>○</span>正在整理圖片</div>
         </div>
@@ -149,13 +158,15 @@
       <div class="result-content">
         <div class="result-image-wrap"><img id="resultImage"
             alt="AI 生成結果" />
+          <video id="resultVideo" aria-label="AI 生成影片" controls autoplay muted loop playsinline preload="metadata" hidden></video>
           <div class="result-label"
             id="resultStyleLabel"></div>
         </div>
+        <p class="result-media-status" id="resultMediaStatus" role="status" aria-live="polite" hidden></p>
         <div class="cost-card">
-          <div><small>本次使用</small><strong id="totalTokens">13,797</strong><span>總 Token</span></div>
+          <div><small>本次使用</small><strong id="totalTokens">—</strong><span id="tokenLabel">總 Token</span></div>
           <div class="cost-divider"></div>
-          <div><small>估計費用</small><strong id="totalCost">NT$1.56</strong><span>約 US$0.048</span></div>
+          <div><small>估計費用</small><strong id="totalCost">依帳單為準</strong><span id="totalCostUsd"></span></div>
         </div>
       </div>
       <div class="result-actions"><button class="primary-button"
@@ -167,7 +178,7 @@
   </main>
   <div class="toast"
     id="toast"></div>
-  <script src="app.js?v=21"
+  <script src="app.js?v=30"
     type="module"></script>
 </body>
 

@@ -5,10 +5,15 @@ import path from "node:path";
 import express from "express";
 import multer from "multer";
 import OpenAI, { toFile } from "openai";
-import { getStylePrompt } from "./styles.js";
+import { getCameraMode, getCameraConfig, getPhotoPrompt } from "./camera-mode.js";
+import { OPERA_ROLES } from "./opera.js";
 import { IMAGE_MODEL, DEFAULT_IMAGE_QUALITY, estimateCost } from "./image-config.js";
+import { getVideoConfig } from "./video-config.js";
+import { generateVideo } from "./video-generation.js";
 
 const app = express();
+const photoMode = getCameraMode();
+const videoConfig = getVideoConfig();
 const port = Number(process.env.PORT) || 3000;
 const maxConcurrent = Number(process.env.MAX_CONCURRENT) || 3;
 const maxQueue = Number(process.env.MAX_QUEUE) || 30;
@@ -117,29 +122,59 @@ function findStoredPhotoName(date, filename, namesByFile) {
  * 將完成的 job 存到 storage/YYYY-MM-DD/<timestamp>-<jobId8>-<name>.jpg
  * 並 append 一行 metadata 到 results.jsonl
  */
+function resultFileInfo(job) {
+  const date = taipeiDateString(job.createdAt);
+  const directory = path.join(STORAGE_ROOT, date);
+  const stem = `${job.createdAt}-${job.id.slice(0, 8)}-${participantNameFilenamePart(job.name)}`;
+  fs.mkdirSync(directory, { recursive: true });
+  return { date, directory, stem };
+}
+
+function persistImage(job) {
+  if (job.file) return;
+  const { date, directory, stem } = resultFileInfo(job);
+  const filename = `${stem}.jpg`;
+  const base64 = job.image.replace(/^data:image\/\w+;base64,/, "");
+  fs.writeFileSync(path.join(directory, filename), Buffer.from(base64, "base64"));
+  job.file = `${date}/${filename}`;
+}
+
+function persistVideo(job, buffer) {
+  const { date, directory, stem } = resultFileInfo(job);
+  const filename = `${stem}.mp4`;
+  const temporary = path.join(directory, `${filename}.tmp`);
+  try {
+    fs.writeFileSync(temporary, buffer);
+    fs.renameSync(temporary, path.join(directory, filename));
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
+  job.videoFile = `${date}/${filename}`;
+  job.video = `/storage/${date}/${encodeURIComponent(filename)}`;
+}
+
 function persistResult(job) {
   try {
-    // 建立日期子目錄
-    const dateStr  = taipeiDateString(job.createdAt); // YYYY-MM-DD (Asia/Taipei)
-    const dateDir  = path.join(STORAGE_ROOT, dateStr);
-    fs.mkdirSync(dateDir, { recursive: true });
-
-    // 寫入 JPEG 檔案
-    const namePart = participantNameFilenamePart(job.name);
-    const filename = `${job.createdAt}-${job.id.slice(0, 8)}-${namePart}.jpg`;
-    const filepath = path.join(dateDir, filename);
-    const base64   = job.image.replace(/^data:image\/\w+;base64,/, "");
-    fs.writeFileSync(filepath, Buffer.from(base64, "base64"));
+    persistImage(job);
 
     // Append metadata
     const record = {
       id:        job.id,
       name:      job.name,
       style:     job.style,
+      mode:      job.mode,
+      role:      job.role,
+      propId:    job.propId,
+      propName:  job.propName,
       deviceId:  job.deviceId,
       createdAt: job.createdAt,
       savedAt:   Date.now(),
-      file:      `${dateStr}/${filename}`,
+      file:      job.file,
+      videoFile: job.videoFile,
+      videoMetadata: job.videoMetadata,
+      videoWarning: job.videoWarning,
+      imageCost: job.imageCost,
+      videoCost: job.videoCost,
       usage:     job.usage,
       cost:      { usd: job.cost?.usd, twd: job.cost?.twd }
     };
@@ -202,14 +237,15 @@ function queuePosition(jobId) {
 }
 
 function publicJob(job) {
-  const common = { jobId: job.id, status: job.status, position: queuePosition(job.id) };
-  if (job.status === "completed") return { ...common, image: job.image, usage: job.usage, cost: job.cost };
+  const common = { jobId: job.id, status: job.status, position: queuePosition(job.id), mode: job.mode, style: job.style, role: job.role, propId: job.propId, propName: job.propName, stage: job.stage, videoProgress: job.videoProgress };
+  if (job.status === "completed") return { ...common, image: job.image, usage: job.usage, cost: job.cost, video: job.video, videoMetadata: job.videoMetadata, videoWarning: job.videoWarning, imageCost: job.imageCost, videoCost: job.videoCost };
   if (job.status === "failed")   return { ...common, error: job.error };
   return common;
 }
 
 async function runJob(job) {
   job.status = "processing";
+  job.stage = "image";
   activeJobs += 1;
   try {
     if (!process.env.OPENAI_API_KEY) throw new Error("伺服器尚未設定 OPENAI_API_KEY");
@@ -217,7 +253,7 @@ async function runJob(job) {
     const result = await openai.images.edit({
       model:              IMAGE_MODEL,
       image,
-      prompt:             getStylePrompt(job.style),
+      prompt:             getPhotoPrompt({ mode: job.mode, style: job.style, role: job.role }),
       quality:            process.env.IMAGE_QUALITY || DEFAULT_IMAGE_QUALITY,
       size:               "1024x1536",
       output_format:      "jpeg",
@@ -234,8 +270,48 @@ async function runJob(job) {
     job.image  = `data:image/jpeg;base64,${encoded}`;
     job.usage  = usage;
     job.cost   = estimateCost(result.usage, exchangeRate);
-    job.status = "completed";
     job.photo  = null;
+
+    if (videoConfig.enabled) {
+      job.stage = "video";
+      job.videoProgress = 0;
+      job.imageCost = job.cost;
+      job.videoCost = { model: videoConfig.model, usd: null, twd: null };
+      try {
+        // Keep the finished photo even if the optional video request fails.
+        persistImage(job);
+        const video = await generateVideo({
+          image: Buffer.from(encoded, "base64"),
+          mode: job.mode, style: job.style, role: job.role,
+          config: videoConfig,
+          apiKey: process.env.XAI_API_KEY,
+          onProgress: ({ progress }) => {
+            if (Number.isFinite(progress)) job.videoProgress = Math.max(0, Math.min(99, progress));
+          }
+        });
+        persistVideo(job, video.buffer);
+        job.videoMetadata = {
+          requestId: video.requestId, model: video.model, duration: video.duration,
+          resolution: video.resolution,
+          generateAudio: video.generateAudio, usage: video.usage
+        };
+        if (Number.isFinite(video.costUsd) && video.costUsd >= 0) {
+          job.videoCost = { model: video.model, usd: video.costUsd, twd: video.costUsd * exchangeRate };
+        }
+      } catch (error) {
+        console.error(`[${job.id}] Video generation failed:`, error.message);
+        job.videoWarning = "影片製作未完成，已保留照片，可先下載或分享照片。";
+      }
+      const knownTotal = Number.isFinite(job.imageCost.usd) && Number.isFinite(job.videoCost.usd);
+      job.cost = {
+        usd: knownTotal ? job.imageCost.usd + job.videoCost.usd : null,
+        twd: knownTotal ? job.imageCost.twd + job.videoCost.twd : null,
+        exchangeRate, estimated: true
+      };
+    }
+    job.status = "completed";
+    job.stage = "completed";
+    job.completedAt = Date.now();
 
     // ★ 儲存結果到磁碟
     persistResult(job);
@@ -243,6 +319,7 @@ async function runJob(job) {
   } catch (error) {
     console.error(`[${job.id}]`, error?.request_id || "", error);
     job.status = "failed";
+    job.completedAt = Date.now();
     job.error  = error?.message || "圖片生成失敗，請重新嘗試";
     job.photo  = null;
   } finally {
@@ -261,23 +338,32 @@ function processQueue() {
 
 // ── API Routes ─────────────────────────────────────────────
 
+app.get("/api/config", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  const { enabled, model, duration, resolution, generateAudio } = videoConfig;
+  res.json({ ...getCameraConfig(photoMode), video: { enabled, model, duration, resolution, generateAudio } });
+});
+
 app.post("/api/generate", upload.single("photo"), (req, res) => {
-  const { style, deviceId, requestId } = req.body || {};
+  const { style, role, deviceId, requestId } = req.body || {};
   const name = normalizeParticipantName(req.body?.name);
-  const prompt = getStylePrompt(style);
+  const prompt = getPhotoPrompt({ mode: photoMode, style, role });
   if (!req.file)                               return res.status(400).json({ error: "沒有收到照片" });
   if (!req.file.mimetype.startsWith("image/")) return res.status(400).json({ error: "只接受圖片檔案" });
-  if (!prompt)                                 return res.status(400).json({ error: "不支援這個風格" });
+  if (!prompt)                                 return res.status(400).json({ error: photoMode === "opera" ? "請選擇歌仔戲角色：生、旦、淨、丑；若模式已切換，請重新整理頁面" : "不支援這個風格或角色，請重新整理頁面後再選擇" });
   if (!name)                                   return res.status(400).json({ error: "請輸入姓名後再拍照" });
   if ([...name].length > maxParticipantNameLength)
     return res.status(400).json({ error: `姓名不可超過 ${maxParticipantNameLength} 個字` });
   if (!deviceId || !requestId)                 return res.status(400).json({ error: "缺少裝置或請求編號" });
   const existingId = requestIds.get(requestId);
   if (existingId) return res.status(202).json(publicJob(jobs.get(existingId)));
+  if (videoConfig.enabled && !process.env.XAI_API_KEY?.trim())
+    return res.status(503).json({ error: "影片功能已啟用，但伺服器尚未設定 XAI_API_KEY" });
   if (queue.length >= maxQueue) return res.status(503).json({ error: "目前等候人數已滿，請稍後再試" });
 
   const id  = crypto.randomUUID();
-  const job = { id, requestId, deviceId, name, style, status: "queued", photo: req.file.buffer, mimeType: req.file.mimetype, createdAt: Date.now() };
+  const selectedRole = photoMode === "opera" ? OPERA_ROLES.find(option => option.id === role) : undefined;
+  const job = { id, requestId, deviceId, name, style, role, mode: photoMode, propId: selectedRole?.propId, propName: selectedRole?.propName, status: "queued", photo: req.file.buffer, mimeType: req.file.mimetype, createdAt: Date.now() };
   jobs.set(id, job);
   requestIds.set(requestId, id);
   queue.push(id);
@@ -286,6 +372,7 @@ app.post("/api/generate", upload.single("photo"), (req, res) => {
 });
 
 app.get("/api/jobs/:id", (req, res) => {
+  res.set("Cache-Control", "no-store");
   const job = jobs.get(req.params.id);
   if (!job) return res.status(404).json({ error: "找不到這個生成工作，服務可能已重新啟動" });
   res.json(publicJob(job));
@@ -298,6 +385,7 @@ app.get("/api/jobs/:id", (req, res) => {
  * results.jsonl 僅用來補上姓名 metadata，不影響圖片候選的掃描。
  */
 app.get("/api/photos/:date", (req, res) => {
+  res.set("Cache-Control", "no-store");
   const date = req.params.date;
   // 基本格式驗證 YYYY-MM-DD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -306,8 +394,10 @@ app.get("/api/photos/:date", (req, res) => {
 
   const dateDir = path.join(STORAGE_ROOT, date);
   let files = [];
+  let storedFiles = new Set();
   try {
-    files = fs.readdirSync(dateDir)
+    storedFiles = new Set(fs.readdirSync(dateDir));
+    files = [...storedFiles]
       .filter(f => /\.(jpe?g|png|webp|gif)$/i.test(f))
       .sort();
   } catch {
@@ -317,16 +407,22 @@ app.get("/api/photos/:date", (req, res) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const images = files.map(f => `${baseUrl}/storage/${date}/${encodeURIComponent(f)}`);
   const namesByFile = readStoredNamesByFile();
-  const photos = files.map((file, index) => ({
-    url: images[index],
-    name: findStoredPhotoName(date, file, namesByFile)
-  }));
+  const photos = files.map((file, index) => {
+    const videoFilename = `${path.parse(file).name}.mp4`;
+    return {
+      url: images[index],
+      name: findStoredPhotoName(date, file, namesByFile),
+      ...(videoConfig.enabled && storedFiles.has(videoFilename)
+        ? { video: `${baseUrl}/storage/${date}/${encodeURIComponent(videoFilename)}` }
+        : {})
+    };
+  });
 
   res.json({ date, total: images.length, images, photos });
 });
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, activeJobs, waitingJobs: queue.length, maxConcurrent });
+  res.json({ ok: true, photoMode, videoEnabled: videoConfig.enabled, activeJobs, waitingJobs: queue.length, maxConcurrent });
 });
 
 app.use((error, _req, res, _next) => {
@@ -342,11 +438,11 @@ app.use((error, _req, res, _next) => {
 setInterval(() => {
   const expiresBefore = Date.now() - 10 * 60 * 1000;
   for (const [id, job] of jobs) {
-    if (job.createdAt < expiresBefore && ["completed", "failed"].includes(job.status)) {
+    if ((job.completedAt ?? job.createdAt) < expiresBefore && ["completed", "failed"].includes(job.status)) {
       jobs.delete(id);
       requestIds.delete(job.requestId);
     }
   }
 }, 60_000).unref();
 
-app.listen(port, () => console.log(`AI Camera listening on http://localhost:${port}`));
+app.listen(port, () => console.log(`AI Camera listening on http://localhost:${port} (PHOTO_MODE=${photoMode})`));
