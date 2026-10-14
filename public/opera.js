@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { RoomEnvironment } from '/vendor/three-addons/environments/RoomEnvironment.js';
 import { createOperaProps } from '/opera-props.js?v=3';
 import { createOperaAtmosphere } from '/opera-atmosphere.js?v=2';
-import { fetchOperaPool, pickOperaWinner } from '/opera-lottery.js?v=2';
+import { createOperaPhotoDrift } from '/opera-photo-drift.js?v=1';
+import { fetchOperaPool, pickOperaWinner, operaDateString } from '/opera-lottery.js?v=3';
 
 const $ = selector => document.querySelector(selector);
 const stage = $('#operaStage');
@@ -45,6 +46,10 @@ let drag = null;
 let wheelTotal = 0;
 let wheelLocked = false;
 let wheelTimer;
+let photoDrift;
+let photoRefreshTimer;
+let poolRequestVersion = 0;
+let disposed = false;
 
 const symbols = {
     fan: '<path d="M32 54 4 25Q32-5 60 25Zm0 0L12 18m20 36L22 12m10 42V9m0 45 10-42m-10 42 20-36"/>',
@@ -82,6 +87,33 @@ function updatePoolInfo() {
         previousDrawDate = pool.date;
     }
     $('#refreshPool').hidden = pool.entries.length > 0;
+    photoDrift?.setPhotos(pool.photoUrls, pool.date);
+    buttons.forEach(button => { button.disabled = busy; });
+}
+
+function syncStageActivity() {
+    const paused = document.hidden || !panel.hidden;
+    photoDrift?.setPaused(paused);
+    clearTimeout(photoRefreshTimer);
+    if (!paused && !disposed && !reducedMotion) photoRefreshTimer = setTimeout(refreshBackgroundPhotos, 60000);
+}
+
+async function refreshBackgroundPhotos() {
+    if (disposed || document.hidden || !panel.hidden) return;
+    // Do not keep yesterday's portraits drifting while today's list is loading.
+    if (pool?.date !== operaDateString()) photoDrift?.setPhotos([], operaDateString());
+    if (!busy) {
+        const version = ++poolRequestVersion;
+        try {
+            const nextPool = await fetchOperaPool();
+            // An explicit draw/refresh always wins over a background response.
+            if (!disposed && version === poolRequestVersion && !busy && panel.hidden) {
+                pool = nextPool;
+                updatePoolInfo();
+            }
+        } catch { /* Keep the current stage during temporary network failures. */ }
+    }
+    syncStageActivity();
 }
 
 function emptyMessage() {
@@ -93,6 +125,7 @@ function emptyMessage() {
 async function refreshPool() {
     if (busy) return;
     setBusy(true);
+    poolRequestVersion += 1;
     status.textContent = '正在更新今日名單…';
     try {
         pool = await fetchOperaPool();
@@ -108,6 +141,7 @@ async function refreshPool() {
 async function draw(prop, trigger) {
     if (busy || !panel.hidden) return;
     setBusy(true);
+    poolRequestVersion += 1;
     lastTrigger = trigger || prop.button;
     selectProp(props.indexOf(prop));
     activeProp = prop;
@@ -210,6 +244,7 @@ function showWinner() {
     clearMedia();
     $('#winnerName').textContent = winner.name;
     panel.hidden = false;
+    syncStageActivity();
     lobby.inert = true;
     lobby.setAttribute('aria-hidden', 'true');
     $('#closeWinner').focus();
@@ -243,6 +278,7 @@ function showWinner() {
 function closeWinner() {
     clearMedia();
     panel.hidden = true;
+    syncStageActivity();
     lobby.inert = false;
     lobby.removeAttribute('aria-hidden');
     winner = null;
@@ -259,16 +295,25 @@ video.addEventListener('click', () => {
 });
 document.addEventListener('keydown', event => {
     if (panel.hidden) {
-        if (event.altKey || event.ctrlKey || event.metaKey || event.repeat || event.target.closest('button, a, input')) return;
+        const target = event.target instanceof Element ? event.target : null;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing ||
+            target?.closest('a, input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             event.preventDefault();
+            if (event.repeat || busy) return;
             stepCarousel(event.key === 'ArrowLeft' ? -1 : 1);
+            // Leave the previously focused prop button so Enter always uses
+            // the object now selected at the front of the carousel.
+            stage.focus({ preventScroll: true });
         } else if (event.key === 'Enter' || event.key === ' ') {
+            if (target?.closest('button') && !target.closest('.prop-control')) return;
             event.preventDefault();
+            if (event.repeat || busy) return;
             void draw(props[selectedIndex], stage);
         }
         return;
     }
+    if (event.repeat && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); return; }
     if (event.key === 'Escape') { event.preventDefault(); closeWinner(); }
     if (event.key !== 'Tab') return;
     const focusable = [...panel.querySelectorAll('button')].filter(element => !element.hidden);
@@ -282,6 +327,8 @@ function useFallbackControls() {
     sceneAvailable = false;
     stage.classList.add('opera-no-webgl');
     if (renderer) { renderer.setAnimationLoop(null); renderer.domElement.hidden = true; }
+    photoDrift?.dispose();
+    photoDrift = null;
     status.textContent = '立體舞台暫時無法顯示，仍可點選道具圖示抽獎。';
 }
 
@@ -292,6 +339,7 @@ function selectProp(index) {
     carouselTarget += delta;
     if (reducedMotion) carouselPosition = carouselTarget;
     stage.dataset.selectedProp = props[next].id;
+    buttons.forEach((button, index) => button.setAttribute('aria-current', String(index === next)));
     status.textContent = props[next].name;
 }
 
@@ -456,7 +504,6 @@ function layoutProps(now, dt, snap = false) {
         prop.group.scale.setScalar(damp(prop.group.scale.x, targetScale));
         prop.group.rotation.y = damp(prop.group.rotation.y, -Math.sin(angle) * .4);
         prop.group.rotation.z = damp(prop.group.rotation.z, -Math.sin(angle) * .055);
-        prop.button.setAttribute('aria-current', String(index === selectedIndex));
     });
 }
 
@@ -467,19 +514,33 @@ function render(now) {
     if (document.hidden || !panel.hidden) return;
     layoutProps(now, dt);
     atmosphere?.update(now / 1000, dt);
+    photoDrift?.update(now / 1000, dt);
     renderer.render(scene, camera);
 }
 
 try { createScene(); } catch (error) { console.warn('歌仔戲立體舞台無法啟動', error); useFallbackControls(); }
-stage.dataset.selectedProp = props[selectedIndex].id;
+if (sceneAvailable) photoDrift = createOperaPhotoDrift(stage, { reducedMotion });
+selectProp(selectedIndex);
+syncStageActivity();
+document.addEventListener('visibilitychange', () => {
+    syncStageActivity();
+    if (!document.hidden && panel.hidden) void refreshBackgroundPhotos();
+});
+window.addEventListener('pageshow', syncStageActivity);
 window.addEventListener('resize', resize, { passive: true });
 window.addEventListener('pagehide', event => {
+    if (disposed) return;
     video.pause();
+    if (!video.hidden && !panel.hidden) playButton.hidden = false;
+    clearTimeout(photoRefreshTimer);
+    photoDrift?.setPaused(true);
     if (event.persisted) return;
+    disposed = true;
     clearMedia();
     clearTimeout(wheelTimer);
     renderer?.setAnimationLoop(null);
     atmosphere?.dispose();
+    photoDrift?.dispose();
     const geometries = new Set();
     const materials = new Set();
     const textures = new Set();
@@ -498,5 +559,5 @@ window.addEventListener('pagehide', event => {
     textures.forEach(texture => texture.dispose());
     reflectionTarget?.dispose();
     renderer?.dispose();
-}, { once: true });
+});
 void refreshPool();

@@ -101,3 +101,50 @@ test('each fresh pool includes the actual Taipei query date for resetting draw h
     assert.equal(after.date, '2026-10-15');
     assert.deepEqual(photoRequests, ['/api/photos/2026-10-14', '/api/photos/2026-10-15']);
 });
+
+test('display photo URLs include unfinished videos independently from the filtered winner pool', async t => {
+    let videoEnabled = true;
+    const data = { photos: [
+        { url: '/storage/finished.jpg', name: '完成', video: '/storage/finished.mp4' },
+        { url: '/storage/pending.jpg', name: '製作中' },
+        { url: '/storage/pending.jpg', name: '重複網址' },
+        { url: '/storage/failed.jpg', name: '影片失敗', video: 'javascript:alert(1)' },
+        { url: 'javascript:alert(1)', name: '無效照片', video: '/storage/invalid.mp4' },
+        { url: 'data:image/png;base64,abc' },
+        { url: '' },
+        null
+    ] };
+    t.mock.method(globalThis, 'fetch', async url => Response.json(url === '/api/config'
+        ? { mode: 'opera', video: { enabled: videoEnabled } }
+        : data));
+    const videoPool = await fetchOperaPool();
+    assert.deepEqual(videoPool.entries.map(entry => entry.url), ['/storage/finished.jpg']);
+    assert.deepEqual(videoPool.photoUrls, ['/storage/finished.jpg', '/storage/pending.jpg', '/storage/failed.jpg']);
+
+    videoEnabled = false;
+    const photoPool = await fetchOperaPool();
+    assert.deepEqual(photoPool.photoUrls, videoPool.photoUrls);
+    assert.deepEqual(photoPool.entries.map(entry => entry.url), videoPool.photoUrls);
+});
+
+test('display photo URLs accept legacy images without changing lottery candidates', async t => {
+    t.mock.method(globalThis, 'fetch', async url => Response.json(url === '/api/config'
+        ? { mode: 'opera', video: { enabled: true } }
+        : { images: ['/storage/a.jpg', '/storage/a.jpg', 'https://example.com/b.jpg', 'javascript:alert(1)', 'file:///c.jpg', null, ' '] }));
+    const pool = await fetchOperaPool();
+    assert.deepEqual(pool.photoUrls, ['/storage/a.jpg', 'https://example.com/b.jpg']);
+    assert.deepEqual(pool.entries, [], 'display fallback must not create new lottery candidates');
+});
+
+test('empty or missing stored photos never add example portraits to the display pool', async t => {
+    let data = { photos: [], images: [] };
+    t.mock.method(globalThis, 'fetch', async url => Response.json(url === '/api/config'
+        ? { mode: 'opera', video: { enabled: true } }
+        : data));
+    for (const response of [{ photos: [], images: [] }, { images: [] }, {}]) {
+        data = response;
+        const pool = await fetchOperaPool();
+        assert.deepEqual(pool.photoUrls, []);
+        assert.deepEqual(pool.entries, []);
+    }
+});

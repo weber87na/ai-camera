@@ -15,6 +15,12 @@ function mediaUrl(value) {
     } catch { return ''; }
 }
 
+/** Display every stored photo, even while its paired video is still pending. */
+function operaPhotoUrls(data) {
+    const source = Array.isArray(data?.photos) ? data.photos.map(photo => photo?.url) : data?.images;
+    return [...new Set((Array.isArray(source) ? source : []).map(mediaUrl).filter(Boolean))];
+}
+
 /** All four props use one pool. Video draws only include finished video pairs. */
 export function operaCandidates(data, videoEnabled) {
     if (!Array.isArray(data?.photos)) return [];
@@ -61,5 +67,6 @@ export async function fetchOperaPool() {
     const date = operaDateString();
     const response = await fetch(`/api/photos/${date}`, { cache: 'no-store', signal });
     if (!response.ok) throw new Error('無法讀取今日名單，請稍後重試。');
-    return { date, videoEnabled, entries: operaCandidates(await response.json(), videoEnabled) };
+    const data = await response.json();
+    return { date, videoEnabled, entries: operaCandidates(data, videoEnabled), photoUrls: operaPhotoUrls(data) };
 }

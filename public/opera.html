@@ -9,7 +9,7 @@
     <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.min.js" } }</script>
 </head>
 <body>
-    <main id="operaStage" tabindex="0" aria-label="歌仔戲環形抽獎展台。左右滑動、滾輪或方向鍵切換道具，點選道具或按 Enter 抽獎。">
+    <main id="operaStage" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight Enter" aria-label="歌仔戲環形抽獎展台。左右滑動、滾輪或方向鍵切換道具，點選道具或按 Enter 抽獎。">
         <div id="propControls" class="prop-controls" role="group" aria-label="抽獎道具"></div>
         <p id="operaStatus" class="sr-only" role="status" aria-live="polite"></p>
         <div id="stageFeedback" class="stage-feedback" aria-hidden="true" hidden></div>
@@ -25,6 +25,6 @@
         <button id="retryMedia" class="icon-button play-winner" type="button" aria-label="重新載入中獎照片" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.1 6.5M20 4v7h-7"/></svg></button>
         <p id="mediaStatus" class="sr-only" role="status" aria-live="polite"></p>
     </section>
-    <script type="module" src="/opera.js?v=5"></script>
+    <script type="module" src="/opera.js?v=6"></script>
 </body>
 </html>
