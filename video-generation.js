@@ -1,4 +1,6 @@
 import { getVideoConfig, isLoopbackUrl } from "./video-config.js";
+import { getBeautyVideoPrompt } from "./opera-beauty.js";
+import { getHandsomeVideoPrompt } from "./opera-handsome.js";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_JSON_BYTES = 1024 * 1024;
@@ -19,10 +21,16 @@ const ROLE_CONTINUITY = Object.freeze({
 });
 
 export function getVideoPrompt({ mode, role, style, generateAudio = false }) {
+  if (mode === "opera") {
+    const beautyPrompt = getBeautyVideoPrompt(role, generateAudio);
+    if (beautyPrompt) return beautyPrompt;
+    const handsomePrompt = getHandsomeVideoPrompt(role, generateAudio);
+    if (handsomePrompt) return handsomePrompt;
+  }
   const common = "以輸入照片作為第一幀，製作自然連續的短影片。保持原圖人物數量、每個人的容貌、五官、年齡、服裝、髮型、畫面風格、道具與背景一致，不換臉、不新增人物或物件。保留人物與道具完整構圖，動作細微且符合人體結構，不裁切重要道具，不產生多餘手指或肢體。鏡頭平穩、沒有快速移動或切鏡，不新增文字、字幕、標誌、浮水印或邊框。";
   let action;
   if (mode === "opera") {
-    if (!Object.hasOwn(ROLE_MOTION, role)) throw new Error("歌仔戲影片角色無效。");
+    if (typeof role !== "string" || !Object.hasOwn(ROLE_MOTION, role)) throw new Error("歌仔戲影片角色無效。");
     // Keep the user's approved motion paragraph verbatim; continuity rules are separate.
     action = `${ROLE_MOTION[role]}\n${ROLE_CONTINUITY[role]}`;
   } else {

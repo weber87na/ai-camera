@@ -369,7 +369,7 @@ app.post("/api/generate", upload.single("photo"), (req, res) => {
   const prompt = getPhotoPrompt({ mode: photoMode, style, role });
   if (!req.file)                               return res.status(400).json({ error: "沒有收到照片" });
   if (!req.file.mimetype.startsWith("image/")) return res.status(400).json({ error: "只接受圖片檔案" });
-  if (!prompt)                                 return res.status(400).json({ error: photoMode === "opera" ? "請選擇歌仔戲角色：生、旦、淨、丑；若模式已切換，請重新整理頁面" : "不支援這個風格或角色，請重新整理頁面後再選擇" });
+  if (!prompt)                                 return res.status(400).json({ error: photoMode === "opera" ? "請選擇有效的歌仔戲角色；若模式已切換，請重新整理頁面" : "不支援這個風格或角色，請重新整理頁面後再選擇" });
   if (!name)                                   return res.status(400).json({ error: "請輸入姓名後再拍照" });
   if ([...name].length > maxParticipantNameLength)
     return res.status(400).json({ error: `姓名不可超過 ${maxParticipantNameLength} 個字` });

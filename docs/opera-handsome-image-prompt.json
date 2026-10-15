@@ -1,0 +1,18 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "新增第九角：年輕俊朗的小生；原有八張預覽保持不變",
+  "role": {
+    "id": "handsome-sheng",
+    "name": "小生",
+    "title": "小生",
+    "asset": "public/images/opera-handsome-sheng-portrait.png",
+    "width": 1024,
+    "height": 1536,
+    "prompt": "Use case: photorealistic-natural.\nGenerate ONE finished 1024 × 1536 vertical character preview for a Taiwanese 歌仔戲 opera photo booth.\nSubject: one exceptionally handsome YOUNG ADULT East Asian/Taiwanese MAN, age about 25–28, as a traditional 小生 / 文生 opera role. A fresh modern men's editorial portrait: clearly masculine natural facial proportions, refined firm jawline, straight elegant nose, expressive dark almond eyes, clean-shaven face, natural dark eyebrows, subtly defined eyes, realistic natural skin. Calm confident gentle closed-lip smile and warm eye contact with camera. Original face, not any celebrity. No exaggerated doll eyes, plastic smoothing, heavy red eyeshadow or comic expression.\nCOSTUME must be a genuine-looking traditional Taiwanese opera male scholar robe 男褶子, NOT generic fantasy hanfu or a modern suit. Ivory opaque lustrous substantial silk broad straight-cut stage robe, modest closed overlapping neckline with a high white inner collar, deep ink-navy embroidered collar and diagonal front border, refined silver bamboo/cloud motifs on the navy edging and sleeves. Broad sleeves with distinct long WHITE SILK WATER-SLEEVE cuffs folded gracefully below the wrists, so hands and fan remain visible. No corseted waist; formal elegant stage silhouette with clear embroidery and piping.\nHeadwear: traditional BLACK 文生巾帽 scholar stage cap, tall structured soft-fabric shape, elegant narrow silver edging and one small jade ornament at front. Natural black hair neatly dressed under the cap; headwear unmistakably theatrical scholar attire. Not an emperor crown, not a tall military helmet or baseball cap, no large horns/feathers. Preserve at least 7% canvas height of clear background above the complete hat.\nPose and prop: shoulders open but relaxed, body subtly three-quarter, face almost toward lens. Hold ONE FULLY OPEN ivory PAPER FOLDING FAN with delicate ink bamboo painting at the lower chest/waist. Full semicircular paper fan, bamboo ribs, pleats, all edges and both hands visible, anatomically correct relaxed fingers; one hand holds the fan pivot and other gently supports its lower edge. Face fully unobstructed. Fan maximum 62% canvas width, white water sleeves drape under hands, no other props, no sword, jewelry necklace, parasol, food, iron chain.\nFraming: head through upper hip, complete hat and full hands/prop with comfortable margins, elegant flattering portrait composition. Entire person and object fit in frame without clipping. Strong male lead charisma while remaining refined and approachable.\nScene: quiet traditional courtyard or hall, softly blurred dark blue-grey lattice window background, flattering soft side light across the face, subtle warm rimlight, fine textile and skin detail, shallow depth of field. The overall mood is high-quality youthful handsome portrait photography with unmistakable traditional opera clothes.\nNo text, calligraphy, typography, logo, watermark, signature, border, collage, extra person, white clown nose, painted mask, beard, Santa elements, crying or exaggerated expression."
+  },
+  "reference": {
+    "url": "https://tcmb.culture.tw/zh-tw/detail?id=597992&indexCode=Culture_Object",
+    "title": "蘭陽戲劇團─戲曲行當【文生】",
+    "note": "小生又稱文生，參考其年輕儒雅的扮相與身段；不複製演員容貌。"
+  }
+}

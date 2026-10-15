@@ -1,4 +1,4 @@
-import { renderOperaMode } from './opera-mode.js?v=6';
+import { renderOperaMode } from './opera-mode.js?v=10';
 import { getCaptureFrame } from './camera-capture.js?v=1';
 
 const styles=[

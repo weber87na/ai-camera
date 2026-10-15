@@ -1,9 +1,26 @@
 import { startOperaPetals } from './opera-petals.js?v=1';
 
 // Text and role IDs come from /api/config; these portraits are local style references.
-const roleIds = ['sheng', 'dan', 'jing', 'chou'];
-const portraitVersion = '2';
-const imageUrl = role => `images/opera-${role.id}-portrait.png?v=${portraitVersion}`;
+const legacyRoleIds = ['sheng', 'dan', 'jing', 'chou'];
+export const getOperaPortraitUrl = role =>
+  `images/opera-${role.id}-portrait.png?v=${legacyRoleIds.includes(role.id) ? '2' : role.id === 'handsome-sheng' ? '1' : '4'}`;
+
+const roleLabel = role => role.name === role.title ? role.name : `${role.name}・${role.title}`;
+
+// Preserve the original four roles and default selection while allowing additions.
+export function getOrderedOperaRoles(roles) {
+  if (!Array.isArray(roles) || roles.length < legacyRoleIds.length ||
+      roles.some(role => !role || typeof role.id !== 'string' || !/^[a-z][a-z0-9-]*$/.test(role.id) ||
+        !['name', 'title', 'description'].every(key => typeof role[key] === 'string' && role[key].trim())) ||
+      new Set(roles.map(role => role.id)).size !== roles.length ||
+      !legacyRoleIds.every(id => roles.some(role => role.id === id))) {
+    throw new Error('歌仔戲角色設定不完整，請重新載入');
+  }
+  return [
+    ...legacyRoleIds.map(id => roles.find(role => role.id === id)),
+    ...roles.filter(role => !legacyRoleIds.includes(role.id)),
+  ];
+}
 
 function setText(selector, text) {
   const element = document.querySelector(selector);
@@ -55,11 +72,7 @@ function decoratePhotoFlow() {
 }
 
 export function renderOperaMode(container, roles, onSelect) {
-  if (!Array.isArray(roles) || roles.length !== roleIds.length ||
-      !roleIds.every(id => roles.filter(role => role?.id === id).length === 1) ||
-      roles.some(role => !['name', 'title', 'description'].every(key => typeof role[key] === 'string' && role[key].trim()))) {
-    throw new Error('歌仔戲角色設定不完整，請重新載入');
-  }
+  const orderedRoles = getOrderedOperaRoles(roles);
 
   decoratePhotoFlow();
   container.innerHTML = `
@@ -79,7 +92,6 @@ export function renderOperaMode(container, roles, onSelect) {
   const carousel = container.querySelector('.opera-carousel');
   const previous = container.querySelector('.opera-previous');
   const next = container.querySelector('.opera-next');
-  const orderedRoles = roleIds.map(id => roles.find(role => role.id === id));
   let selectedIndex = -1;
   let dragging = null;
   let scrollFrame = 0;
@@ -91,14 +103,14 @@ export function renderOperaMode(container, roles, onSelect) {
     slide.dataset.role = role.id;
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', '投影片');
-    slide.setAttribute('aria-label', `${index + 1} / ${roles.length}：${role.name}・${role.title}`);
+    slide.setAttribute('aria-label', `${index + 1} / ${roles.length}：${roleLabel(role)}`);
     const portrait = document.createElement('img');
     portrait.className = 'opera-portrait';
     portrait.width = 1024;
     portrait.height = 1536;
     portrait.draggable = false;
     portrait.decoding = 'async';
-    portrait.alt = `歌仔戲 ${role.name}・${role.title}。${role.description}`;
+    portrait.alt = `歌仔戲 ${roleLabel(role)}。${role.description}`;
     if (index === 0) portrait.fetchPriority = 'high';
     const status = document.createElement('div');
     status.className = 'opera-image-status';
@@ -110,7 +122,7 @@ export function renderOperaMode(container, roles, onSelect) {
       status.hidden = false;
       status.querySelector('span').textContent = '角色示意圖載入中…';
       retry.hidden = true;
-      portrait.src = imageUrl(role) + (reload ? `&retry=${Date.now()}` : '');
+      portrait.src = getOperaPortraitUrl(role) + (reload ? `&retry=${Date.now()}` : '');
     }
     portrait.addEventListener('load', () => {
       portrait.hidden = false;
@@ -135,15 +147,17 @@ export function renderOperaMode(container, roles, onSelect) {
     const role = orderedRoles[index];
     const propName = typeof role.propName === 'string' ? role.propName.trim() : '';
     container.dataset.selectedRole = role.id;
-    container.querySelector('.opera-selected-character').textContent = role.name;
+    const character = container.querySelector('.opera-selected-character');
+    character.textContent = role.name;
+    character.classList.toggle('is-long-name', [...role.name].length > 2);
     previous.disabled = index === 0;
     next.disabled = index === roles.length - 1;
     slides.forEach((slide, i) => {
       slide.setAttribute('aria-hidden', String(i !== index));
       slide.querySelector('button').tabIndex = i === index ? 0 : -1;
     });
-    document.body.style.setProperty('--opera-role-background', `url("${imageUrl(role)}")`);
-    onSelect({ id: 'opera', role: role.id, name: `歌仔戲・${role.name}｜${role.title}${propName ? `・${propName}` : ''}` });
+    document.body.style.setProperty('--opera-role-background', `url("${getOperaPortraitUrl(role)}")`);
+    onSelect({ id: 'opera', role: role.id, name: `歌仔戲・${roleLabel(role)}${propName ? `・${propName}` : ''}` });
   }
   const clampIndex = index => Math.max(0, Math.min(slides.length - 1, index));
   const visibleIndex = () => clampIndex(Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1)));

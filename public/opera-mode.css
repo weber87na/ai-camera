@@ -61,6 +61,7 @@ body.opera-mode {
 .opera-swipe-controls button:disabled { opacity: .35; cursor: default; }
 .opera-caption { position: relative; display: flex; flex: 0 0 clamp(72px, 10vh, 98px); align-items: center; justify-content: center; gap: 14px; padding: 10px 4px; color: #7d3039; }
 .opera-selected-character { font-size: clamp(36px, 5vh, 46px); line-height: 1.2; font-weight: 600; }
+.opera-selected-character.is-long-name { font-size: clamp(28px, min(10vw, 5vh), 46px); white-space: nowrap; }
 .opera-prop { display: block; flex: 0 0 auto; object-fit: contain; pointer-events: none; user-select: none; }
 .opera-mode button:focus-visible, #configRetryButton:focus-visible { outline: 3px solid #7d3039; outline-offset: 3px; }
 .opera-mode .home-controls { padding: 6px 5px 2px; }

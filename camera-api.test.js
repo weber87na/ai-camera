@@ -13,12 +13,17 @@ import { randomUUID } from "node:crypto";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jwZkAAAAASUVORK5CYII=", "base64");
-const expectedRoles = ["sheng", "dan", "jing", "chou"];
+const expectedRoles = ["sheng", "dan", "jing", "chou", "beauty-fan", "beauty-necklace", "beauty-umbrella", "beauty-dessert", "handsome-sheng"];
 const expectedProps = {
   sheng: { propId: "paper-fan", propName: "紙扇" },
   dan: { propId: "iron-chain", propName: "鐵鍊" },
   jing: { propId: "paper-umbrella", propName: "紙傘" },
-  chou: { propId: "dessert-grid", propName: "甜點九宮格" }
+  chou: { propId: "dessert-grid", propName: "甜點九宮格" },
+  "beauty-fan": { propId: "paper-fan", propName: "紙扇" },
+  "beauty-necklace": { propId: "luxury-necklace", propName: "銀飾項鍊" },
+  "beauty-umbrella": { propId: "paper-umbrella", propName: "紙傘" },
+  "beauty-dessert": { propId: "dessert-grid", propName: "甜點九宮格" },
+  "handsome-sheng": { propId: "paper-fan", propName: "紙扇" }
 };
 const jpegBase64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwC/AB//2Q==";
 const operaPagePaths = [
@@ -225,7 +230,7 @@ test("blank PHOTO_MODE preserves standard styles and rejects opera role fields",
   await assertAcceptedWithoutApiCall(baseUrl, [["style", "simpsons"]], "standard", "simpsons", undefined);
   await assertAcceptedWithoutApiCall(baseUrl, [["style", "opera"]], "standard", "opera", undefined);
 
-  for (const role of ["dan", "", "unknown"]) {
+  for (const role of ["dan", "beauty-necklace", "handsome-sheng", "", "unknown"]) {
     const result = await submit(baseUrl, [["style", "opera"], ["role", role]]);
     assert.equal(result.status, 400, `standard mode accepted role ${JSON.stringify(role)}`);
     assert.equal(typeof result.body.error, "string");
@@ -234,11 +239,12 @@ test("blank PHOTO_MODE preserves standard styles and rejects opera role fields",
   assert.equal(invalidStyle.status, 400);
 });
 
-test("opera mode exposes four roles and accepts only matching style and scalar role IDs", { timeout: 20000 }, async t => {
+test("opera mode exposes nine roles and accepts only matching style and scalar role IDs", { timeout: 20000 }, async t => {
   const { baseUrl } = await startServer(t, "opera");
   const config = await getPublicConfig(baseUrl, "opera");
   assert.deepEqual(config.roles.map(role => role.id), expectedRoles);
-  assert.deepEqual(config.roles.map(role => role.name), ["生", "旦", "淨", "丑"]);
+  assert.deepEqual(config.roles.map(role => role.name), ["小生", "苦旦", "花臉", "文丑", "小旦", "小旦", "小旦", "花旦", "小生"]);
+  assert.deepEqual(config.roles.map(role => role.title), config.roles.map(role => role.name));
 
   for (const role of expectedRoles) {
     await assertAcceptedWithoutApiCall(baseUrl, [["style", "opera"], ["role", role]], "opera", "opera", role);
@@ -248,6 +254,11 @@ test("opera mode exposes four roles and accepts only matching style and scalar r
     [["style", "opera"]],
     [["style", "opera"], ["role", ""]],
     [["style", "opera"], ["role", "unknown"]],
+    [["style", "opera"], ["role", "beauty-unknown"]],
+    [["style", "opera"], ["role", "beauty-fan "]],
+    [["style", "opera"], ["role", "handsome-sheng "]],
+    [["style", "opera"], ["role", "handsome-unknown"]],
+    [["style", "opera"], ["role", "Handsome-Sheng"]],
     [["style", "opera"], ["role", "constructor"]],
     [["style", "opera"], ["role", "toString"]],
     [["style", "simpsons"], ["role", "dan"]],
@@ -379,7 +390,12 @@ test("each role sends its fixed prop prompt and persists server-selected props w
     sheng: [/必須手持明顯展開的象牙白紙折扇/, /完整扇面、扇骨與握扇的手/],
     dan: [/《目連救母》中的母親/, /鐵鍊[^\n]*不可省略/, /U 形/],
     jing: [/展開的傳統油紙傘/, /放射狀竹製傘骨/, /傘面不得遮擋臉部/],
-    chou: [/3 × 3 = 9 個獨立方形格子/, /每格各放一件傳統甜點/, /朝鏡頭傾斜/]
+    chou: [/3 × 3 = 9 個獨立方形格子/, /每格各放一件傳統甜點/, /朝鏡頭傾斜/],
+    "beauty-fan": [/指定角色：小旦/, /象牙白搭藕粉的傳統女褶子/, /花鳥紙折扇已展開於胸前下方/, /完整扇面、竹製扇骨與持扇的手/],
+    "beauty-necklace": [/指定角色：小旦/, /深孔雀藍搭香檳金的傳統旦角女帔/, /正常日常尺寸的純銀細鏈/, /鏈身粗細為 1 至 2 毫米、整條長度為 40 至 45 公分/, /一枚長度不超過 1 公分的簡單小水滴形銀墜/, /自然佩戴於頸胸間/, /位於閉合衣襟外側/, /不加入品牌文字/],
+    "beauty-umbrella": [/指定角色：小旦/, /月白搭淺青的傳統女褶子/, /淡色花卉油紙傘置於肩後/, /放射狀竹製傘骨/],
+    "beauty-dessert": [/指定角色：花旦/, /以正紅色為主色的傳統女褶子/, /恰好 3 × 3 = 9 格/, /每格一份甜點/, /腰胸之間.*朝鏡頭傾斜/],
+    "handsome-sheng": [/指定角色：小生/, /象牙白不透明緞面傳統男褶子/, /黑色傳統文生巾帽/, /水墨竹紋/, /一把已完全展開的象牙白紙折扇/, /頭部至上臀部構圖/]
   };
 
   for (const [index, role] of expectedRoles.entries()) {

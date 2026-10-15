@@ -1,11 +1,10 @@
 import { startOperaPetals } from './opera-petals.js?v=1';
+import { getOrderedOperaRoles, getOperaPortraitUrl } from './opera-mode.js?v=10';
 
 const POLL_INTERVAL = 10000;
 const OPERA_MIN_CELLS = 9;
 // Match the homepage portraits; these placeholders never enter the photo API.
-const operaSamples = new Map([
-    ['sheng', '生'], ['dan', '旦'], ['jing', '淨'], ['chou', '丑'],
-].map(([role, name]) => [`/images/opera-${role}-portrait.png?v=2`, `${name}・角色造型示意`]));
+const operaSamples = new Map();
 
 let photos = []; // 當前顯示的圖片 URL 陣列
 const cardMap = new Map(); // URL → DOM element 的對照表
@@ -42,11 +41,17 @@ async function loadGalleryMode() {
         galleryMode = config.mode;
         galleryVideo = config.video || { enabled: false };
         const opera = galleryMode === 'opera';
+        operaSamples.clear();
+        if (opera) {
+            for (const role of getOrderedOperaRoles(config.roles)) {
+                operaSamples.set(`/${getOperaPortraitUrl(role)}`, `${role.name}・角色造型示意`);
+            }
+        }
         document.getElementById('galleryLotteryLink').hidden = !opera;
         document.body.classList.toggle('opera-mode', opera);
         if (opera) startOperaPetals();
         document.getElementById('galleryTitle').textContent = opera ? '歌仔戲藝廊' : '映像間';
-        document.getElementById('gallerySubtitle').textContent = opera ? '四大行當・今日好戲' : '今日作品';
+        document.getElementById('gallerySubtitle').textContent = opera ? '戲曲寫真・今日好戲' : '今日作品';
         document.querySelector('meta[name="theme-color"]').content = opera ? '#211719' : '#1a1a1a';
         document.title = opera ? '映像間｜歌仔戲藝廊' : '映像間｜作品藝廊';
     } finally {
@@ -94,7 +99,7 @@ async function fetchPhotos() {
         }
     }
 
-    // 尚無作品時使用首頁的四張角色示意圖，其餘位置由九宮格補空。
+    // 尚無作品時使用首頁的角色示意圖，其餘位置由九宮格補空。
     photoVideos.clear();
     photoNames.clear();
     if (galleryMode === 'opera') {

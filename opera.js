@@ -1,37 +1,42 @@
+import { BEAUTY_ROLES, getBeautyPortraitPrompt } from "./opera-beauty.js";
+import { HANDSOME_ROLE, getHandsomePortraitPrompt } from "./opera-handsome.js";
+
 /** Public role descriptions; the generation instructions stay on the server. */
 export const OPERA_ROLES = Object.freeze([
   Object.freeze({
     id: "sheng",
-    name: "生",
-    title: "俊雅書生",
+    name: "小生",
+    title: "小生",
     propId: "paper-fan",
     propName: "紙扇",
     description: "儒雅巾帽、刺繡長袍與水袖，手持醒目展開的紙扇，展現生角的英氣。"
   }),
   Object.freeze({
     id: "dan",
-    name: "旦",
-    title: "目連救母・母親",
+    name: "苦旦",
+    title: "苦旦",
     propId: "iron-chain",
     propName: "鐵鍊",
     description: "淡紫灰衣、披散長髮，雙手持著醒目的舞台鐵鍊，演繹母親的悲切。"
   }),
   Object.freeze({
     id: "jing",
-    name: "淨",
-    title: "威武花臉",
+    name: "花臉",
+    title: "花臉",
     propId: "paper-umbrella",
     propName: "紙傘",
     description: "鮮明花臉、厚重戲服，手持肩側展開的傳統紙傘，呈現淨角的氣勢。"
   }),
   Object.freeze({
     id: "chou",
-    name: "丑",
-    title: "機智丑角",
+    name: "文丑",
+    title: "文丑",
     propId: "dessert-grid",
     propName: "甜點九宮格",
     description: "鼻樑白粉、俏皮眼神，穿著聖誕老人融合歌仔戲的紅色金繡戲袍與白毛邊，雙手捧著三乘三甜點九宮格。"
-  })
+  }),
+  ...BEAUTY_ROLES,
+  HANDSOME_ROLE
 ]);
 
 // Opera changes costumes, hair, props and stage setting deliberately. Do not
@@ -114,7 +119,7 @@ const ROLE_PROMPTS = Object.freeze({
 /** Return an independent role prompt, or null for an unrecognized role ID. */
 export function getOperaPrompt(role) {
   if (typeof role !== "string" || !Object.hasOwn(ROLE_PROMPTS, role)) {
-    return null;
+    return getBeautyPortraitPrompt(role) ?? getHandsomePortraitPrompt(role);
   }
   return `${OPERA_PORTRAIT_PROMPT}\n\n${ROLE_PROMPTS[role]}`;
 }

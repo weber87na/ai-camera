@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { getVideoConfig } from "./video-config.js";
 import { generateVideo, getVideoPrompt } from "./video-generation.js";
 
 const config = getVideoConfig({ VIDEO_ENABLED: "true", VIDEO_POLL_INTERVAL_MS: "250" });
+const originalRoles = JSON.parse(readFileSync(new URL("./test-fixtures/opera-original-roles.json", import.meta.url), "utf8"));
 // A real 2x3 JPEG fixture; submitting it must not change dimensions or encoding.
 const input = Buffer.from("/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAADAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABgj/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABykX//Z", "base64");
 const mp4 = Buffer.from([0, 0, 0, 24, ...Buffer.from("ftypisom"), 0, 0, 0, 0, ...Buffer.from("isommp42")]);
@@ -88,6 +90,78 @@ test("all four user-approved video motion paragraphs are retained verbatim", () 
     const prompt = getVideoPrompt({ mode: "opera", role });
     assert.ok(prompt.split("\n").includes(paragraph), `${role} keeps the exact approved paragraph`);
     assert.match(prompt, /全片必須無聲/);
+  }
+});
+
+test("complete original video prompts match the baseline for both audio settings", () => {
+  for (const { role, videoPromptSilent, videoPromptAudio } of originalRoles) {
+    assert.equal(getVideoPrompt({ mode: "opera", role: role.id }), videoPromptSilent);
+    assert.equal(getVideoPrompt({ mode: "opera", role: role.id, generateAudio: false }), videoPromptSilent);
+    assert.equal(getVideoPrompt({ mode: "opera", role: role.id, generateAudio: true }), videoPromptAudio);
+  }
+});
+
+test("beauty video prompts use one subtle motion and stable props with closed lips", () => {
+  const roles = {
+    "beauty-fan": [/紙折扇輕抬一次/, /完整扇面、竹製扇骨及持扇的手始終可見/, /肩膀與軀幹全程固定/, /未持扇的手保持原圖腰間位置/, /向上移動 3 至 5 公分/, /扇面始終位於鎖骨下方/, /不張開雙臂、不起舞、不向側邊伸手/],
+    "beauty-necklace": [/緩慢小幅轉頭看向鏡頭/, /銀飾項鍊穩定貼合頸胸，鏈節連貫/, /正常日常尺寸的純銀細鏈/, /鏈身粗細 1 至 2 毫米、整條長度 40 至 45 公分/, /長度不超過 1 公分的單枚小水滴形銀墜/, /銀色全程保持不變/, /細微自然反光/, /僅頭頸輕微轉動/, /軀幹、肩膀與雙手全程固定/, /雙手保持原圖腰間自然交疊位置/],
+    "beauty-umbrella": [/眼睛的視線輕微移向鏡頭/, /頭部、肩膀、軀幹、雙手及整把紙傘的位置與角度全程固定/, /不轉頭、不轉身/, /不橫移、不傾斜、不旋轉/, /不可讓傘緣移出畫面/],
+    "beauty-dessert": [/眼神轉向鏡頭/, /正紅色金繡傳統女褶子/, /正紅色袍身全程維持同一色彩/, /始終恰好 3 × 3 = 9 格、每格一份甜點、總共九件/, /不搖擺禮盒/]
+  };
+  for (const [role, requirements] of Object.entries(roles)) {
+    for (const generateAudio of [false, true]) {
+      const prompt = getVideoPrompt({ mode: "opera", role, generateAudio });
+      for (const requirement of requirements) assert.match(prompt, requirement);
+      assert.match(prompt, /人物數量/);
+      assert.match(prompt, /閉合領口與衣襟、寬鬆直身袍形/);
+      assert.match(prompt, /寬袖及另接的純白水袖必須與第一幀一致/);
+      assert.match(prompt, /不改變版型或配色/);
+      assert.match(prompt, /最後約三分之一穩定停留/);
+      assert.match(prompt, /每款只做一個小幅主要動作/);
+      assert.match(prompt, /全程閉唇，不張嘴唱戲/);
+      assert.match(prompt, /不裁掉手部或道具/);
+      assert.match(prompt, /鏡頭固定穩定/);
+      assert.match(prompt, generateAudio ? /僅可提供柔和自然的環境音/ : /全片必須無聲/);
+      assert.doesNotMatch(prompt, /嘴唇的微小動作僅作為無聲表演|嘴唇輕輕開合|俏皮地挑起眉毛/);
+      assert.doesNotMatch(prompt, /蝶扇千金|璀璨名伶|煙雨佳人|花宴甜心/);
+    }
+  }
+  for (const role of ["beauty-unknown", "beauty-fan ", "constructor", ["beauty-fan"], ["sheng"], {}, undefined]) {
+    assert.throws(() => getVideoPrompt({ mode: "opera", role }), /角色無效/);
+  }
+});
+
+test("the additional xiaosheng video keeps the fan static and moves only the head", () => {
+  for (const generateAudio of [false, true]) {
+    const prompt = getVideoPrompt({ mode: "opera", role: "handsome-sheng", generateAudio });
+    for (const requirement of [
+      /台灣歌仔戲小生/, /實際年齡、性別特徵、人物數量與位置/, /不強制年輕化/,
+      /象牙白傳統男褶子/, /墨藍銀繡領襟/, /黑色文生巾帽/, /頭部至上臀部構圖/,
+      /預設 3 秒短片/, /緩慢小幅轉頭看向鏡頭/, /僅頭頸輕微轉動/,
+      /肩膀、軀幹、雙手及紙扇全程固定/, /不抬扇、不搖扇、不張開雙臂/,
+      /紙扇始終完全展開於胸前下方/, /最後約三分之一穩定停留/,
+      /全程閉唇，不張嘴唱戲、不說話、不大笑/, /鏡頭固定穩定/
+    ]) assert.match(prompt, requirement);
+    assert.match(prompt, generateAudio ? /僅可提供柔和自然的環境音/ : /全片必須無聲/);
+  }
+  for (const role of ["handsome-sheng ", "Handsome-Sheng", "handsome-unknown", ["handsome-sheng"]]) {
+    assert.throws(() => getVideoPrompt({ mode: "opera", role }), /角色無效/);
+  }
+});
+
+test("each additional portrait role reaches the video provider with its own motion and existing settings", async () => {
+  for (const role of ["beauty-fan", "beauty-necklace", "beauty-umbrella", "beauty-dessert", "handsome-sheng"]) {
+    const { requests, result } = await run([
+      json({ request_id: role }), json(done()), new Response(mp4)
+    ], { role });
+    const body = JSON.parse(requests[0].body);
+    assert.equal(body.prompt, getVideoPrompt({ mode: "opera", role, generateAudio: false }));
+    assert.equal(body.duration, 3);
+    assert.equal(body.resolution, "720p");
+    assert.equal(body.generate_audio, false);
+    assert.deepEqual(Buffer.from(body.image.url.split(",")[1], "base64"), input);
+    assert.equal(result.requestId, role);
+    assert.deepEqual(result.buffer, mp4);
   }
 });
 

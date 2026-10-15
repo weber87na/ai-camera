@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test image-config.test.js camera-mode.test.js camera-capture.test.js camera-api.test.js video-config.test.js video-generation.test.js video-api.test.js opera-lottery.test.js opera-photo-drift.test.js",
+    "test": "node --test image-config.test.js camera-mode.test.js camera-capture.test.js camera-api.test.js video-config.test.js video-generation.test.js video-api.test.js opera-lottery.test.js opera-photo-drift.test.js opera-frontend.test.js",
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check styles.js && node --check camera-mode.js && node --check opera.js && node --check video-config.js && node --check video-generation.js && node --check public/opera-mode.js && node --check public/opera-petals.js && node --check public/app.js && node --check public/display-mode.js && node --check public/experience-playback.js && node --check public/lottery-photos.js && node --check public/starship.js && node --check public/chinese-magic.js && node --check public/simpsons-magic.js && node --check public/hunterxhunter.js && node --check public/disney.js && node --check public/painter.js && node --check public/gallery.js && node --check public/opera.js && node --check public/opera-props.js && node --check public/opera-materials.js && node --check public/opera-atmosphere.js && node --check public/opera-lottery.js && node --check public/opera-photo-drift.js"
+    "check": "node --check server.js && node --check styles.js && node --check camera-mode.js && node --check opera.js && node --check opera-beauty.js && node --check opera-handsome.js && node --check video-config.js && node --check video-generation.js && node --check public/opera-mode.js && node --check public/opera-petals.js && node --check public/app.js && node --check public/display-mode.js && node --check public/experience-playback.js && node --check public/lottery-photos.js && node --check public/starship.js && node --check public/chinese-magic.js && node --check public/simpsons-magic.js && node --check public/hunterxhunter.js && node --check public/disney.js && node --check public/painter.js && node --check public/gallery.js && node --check public/opera.js && node --check public/opera-props.js && node --check public/opera-materials.js && node --check public/opera-atmosphere.js && node --check public/opera-lottery.js && node --check public/opera-photo-drift.js"
   },
   "engines": {
     "node": ">=20"
